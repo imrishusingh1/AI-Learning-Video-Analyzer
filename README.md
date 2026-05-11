@@ -45,7 +45,7 @@ A full-stack, AI-powered learning platform designed to transform educational vid
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/imrishusingh1/AI-Learning-Video-Analyzer.git
    cd "video summary"
    ```
 
