@@ -2,7 +2,6 @@
 
 A full-stack, AI-powered learning platform designed to transform educational videos and YouTube links into comprehensive study materials. By leveraging the power of **Google Gemini 2.5 Flash** and advanced multimedia processing, this tool automatically generates transcripts, structured study notes, extracted topics, and interactive quizzes from any video content.
 
-![Dashboard Preview](frontend/public/vite.svg) *Replace with a real screenshot of your dashboard*
 
 ## 🌟 Key Features
 
