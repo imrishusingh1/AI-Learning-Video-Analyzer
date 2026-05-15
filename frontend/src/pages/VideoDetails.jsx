@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { FileText, Brain, PenTool, LayoutDashboard, Loader2, Tag } from 'lucide-react';
+import { FileText, Brain, PenTool, LayoutDashboard, Loader2, Tag, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { jsPDF } from 'jspdf';
 
 const VideoDetails = () => {
   const { id } = useParams();
@@ -13,6 +14,85 @@ const VideoDetails = () => {
   const [activeTab, setActiveTab] = useState('notes');
   const [userAnswers, setUserAnswers] = useState({});
   const [submittedAnswers, setSubmittedAnswers] = useState({});
+
+  const exportToPDF = () => {
+    if (!data?.note || !data?.video) return;
+    
+    const doc = new jsPDF();
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const maxLineWidth = pageWidth - margin * 2;
+    let cursorY = margin;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    const titleLines = doc.splitTextToSize(data.video.title, maxLineWidth);
+    doc.text(titleLines, margin, cursorY);
+    cursorY += (titleLines.length * 8) + 10;
+
+    // Summary Header
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', margin, cursorY);
+    cursorY += 8;
+
+    // Summary Content
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    const summaryLines = doc.splitTextToSize(data.note.summary, maxLineWidth);
+    
+    // Check page breaks
+    for (let i = 0; i < summaryLines.length; i++) {
+      if (cursorY > 280) {
+        doc.addPage();
+        cursorY = margin;
+      }
+      doc.text(summaryLines[i], margin, cursorY);
+      cursorY += 6;
+    }
+    
+    cursorY += 10;
+
+    // Detailed Notes Header
+    if (cursorY > 260) {
+      doc.addPage();
+      cursorY = margin;
+    }
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detailed Notes', margin, cursorY);
+    cursorY += 8;
+
+    // Detailed Notes Content (strip basic markdown chars for clean PDF)
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    
+    const cleanNotes = data.note.detailedNotes
+      .replace(/\\*\\*/g, '') // remove bold markers
+      .replace(/#/g, '') // remove headers markers
+      .replace(/\\*/g, '•') // replace lists with bullets
+      .split('\\n');
+      
+    for (const line of cleanNotes) {
+      if (line.trim() === '') {
+        cursorY += 4;
+        continue;
+      }
+      
+      const noteLines = doc.splitTextToSize(line.trim(), maxLineWidth);
+      for (let i = 0; i < noteLines.length; i++) {
+        if (cursorY > 280) {
+          doc.addPage();
+          cursorY = margin;
+        }
+        doc.text(noteLines[i], margin, cursorY);
+        cursorY += 6;
+      }
+    }
+
+    doc.save(`${data.video.title.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')}_Notes.pdf`);
+  };
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -141,7 +221,23 @@ const VideoDetails = () => {
                 {/* ── Notes tab ── */}
                 {activeTab === 'notes' && note && (
                   <div>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.875rem' }}>Summary</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)' }}>Summary</h2>
+                      <button 
+                        onClick={exportToPDF}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.375rem',
+                          padding: '0.4rem 0.875rem', background: '#f3f4f6', 
+                          border: 'none', borderRadius: '8px', cursor: 'pointer',
+                          fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
+                      >
+                        <Download size={14} /> Export PDF
+                      </button>
+                    </div>
                     <p style={{ color: 'var(--text-muted)', lineHeight: 1.8, marginBottom: '2rem', fontSize: '0.9375rem' }}>
                       {note.summary}
                     </p>
