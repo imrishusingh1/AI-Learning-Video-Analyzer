@@ -3,8 +3,10 @@ import Transcript from '../models/Transcript.js';
 import Note from '../models/Note.js';
 import Quiz from '../models/Quiz.js';
 import path from 'path';
+import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
 import { transcribeAndAnalyzeAudio } from '../services/aiService.js';
+import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService.js';
 import youtubedl from 'youtube-dl-exec';
 import fs from 'fs';
 
@@ -13,28 +15,47 @@ import fs from 'fs';
 // @access  Private
 export const uploadVideo = async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: 'Please upload a video file' });
     }
 
-    const videoPath = req.file.path;
-    const title = req.body.title || req.file.originalname;
+    const fileName = req.file.originalname;
+    const title = req.body.title || fileName;
 
-    // Create DB entry
+    // 1. Upload to Cloudinary (Persistent Storage)
+    console.log(`Starting Cloudinary upload for ${fileName}...`);
+    const cloudUpload = await uploadToCloudinary(req.file.buffer);
+
+    // 2. Create DB entry
     const video = await Video.create({
       user: req.user._id,
       title,
-      url: videoPath,
+      url: cloudUpload.url, // Store Cloudinary Viewable URL
+      cloudinaryPublicId: cloudUpload.publicId, // Track for deletion
       source: 'upload',
-      status: 'pending',
+      status: 'processing',
     });
 
-    res.status(201).json({ message: 'Video uploaded successfully', video });
+    // 3. Save to /tmp for Gemini Processing
+    const tmpPath = path.join(os.tmpdir(), `${video._id}-${fileName}`);
+    fs.writeFileSync(tmpPath, req.file.buffer);
 
-    // Asynchronously process video
-    processVideoPipeline(video, videoPath);
+    try {
+      // 4. Run AI Pipeline Synchronously (Vercel requires this)
+      await runAIPipeline(video, tmpPath);
+      
+      // Cleanup tmp file
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      
+      // 5. Send Response
+      res.status(201).json({ message: 'Video uploaded and processed successfully', video });
+    } catch (pipelineError) {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      throw pipelineError;
+    }
 
   } catch (error) {
+    console.error('Upload Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -60,15 +81,15 @@ export const processYouTubeUrl = async (req, res) => {
       title,
       url,
       source: 'youtube',
-      status: 'pending',
+      status: 'processing',
     });
 
-    res.status(201).json({ message: 'YouTube video queued successfully', video });
-
-    // Download video then process
-    downloadAndProcessYouTube(video, url);
+    // Process Synchronously
+    await downloadAndProcessYouTube(video, url);
+    res.status(201).json({ message: 'YouTube video processed successfully', video });
 
   } catch (error) {
+    console.error('YouTube Processing Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -118,6 +139,54 @@ export const getVideoById = async (req, res) => {
   }
 };
 
+// @desc    Cleanup videos older than 7 days from Cloudinary
+// @route   GET /api/videos/cleanup
+// @access  Public (Protected by Vercel Cron Secret)
+export const cleanupOldVideos = async (req, res) => {
+  try {
+    // Basic security check to ensure only Vercel Cron can trigger this (or local testing)
+    const authHeader = req.headers.authorization;
+    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).json({ message: 'Unauthorized cron request' });
+    }
+
+    // 7 Days ago
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Find all videos older than 7 days that STILL have a Cloudinary ID
+    const oldVideos = await Video.find({
+      createdAt: { $lt: sevenDaysAgo },
+      cloudinaryPublicId: { $ne: null }
+    });
+
+    let deletedCount = 0;
+
+    for (const video of oldVideos) {
+      if (video.cloudinaryPublicId && video.cloudinaryPublicId.startsWith('synapseai/')) {
+        try {
+          // Send delete command to Cloudinary
+          await deleteFromCloudinary(video.cloudinaryPublicId);
+          
+          // Clear the URL and PublicID from database so frontend knows it's gone
+          // But keep the actual Video document, Transcript, and Notes!
+          video.url = null;
+          video.cloudinaryPublicId = null;
+          await video.save();
+          
+          deletedCount++;
+        } catch (err) {
+          console.error(`Failed to cleanup video ${video._id}:`, err);
+        }
+      }
+    }
+
+    res.json({ message: `Cleanup complete. Deleted ${deletedCount} old videos.` });
+  } catch (error) {
+    console.error('Cleanup Error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // --- Background Pipeline Methods ---
 
 const runAIPipeline = async (videoDoc, audioPath) => {
@@ -126,11 +195,11 @@ const runAIPipeline = async (videoDoc, audioPath) => {
     console.log(`Starting AI processing for ${videoDoc._id}...`);
     const aiResults = await transcribeAndAnalyzeAudio(audioPath);
     
-    // 4. Save results to DB
+    // 4. Save results to DB with fallbacks to prevent validation errors
     await Transcript.create({
       video: videoDoc._id,
-      fullText: aiResults.transcript,
-      segments: [] // Gemini 1.5 Pro doesn't give timestamps easily in a single prompt without complex schema, leaving empty for now
+      fullText: aiResults.transcript || 'Transcript not available.',
+      segments: []
     });
     
     await Note.create({
@@ -182,18 +251,15 @@ const processVideoPipeline = async (videoDoc, videoFilePath) => {
 };
 
 const downloadAndProcessYouTube = async (videoDoc, youtubeUrl) => {
+  let resolvedPath = null;
   try {
-    videoDoc.status = 'processing';
-    await videoDoc.save();
-
-    // Use a base path — yt-dlp will pick the actual extension (.webm/.m4a etc.)
-    const audioBase = path.join('uploads', `${videoDoc._id}-audio`);
-    const audioBaseAbsolute = path.join(process.cwd(), audioBase);
+    const tmpDir = os.tmpdir();
+    const audioBase = path.join(tmpDir, `${videoDoc._id}-audio`);
     
-    // Download best audio stream directly — NO conversion needed (no ffmpeg required)
-    console.log(`Starting YouTube audio download for ${videoDoc._id}...`);
+    // Download best audio stream directly to /tmp
+    console.log(`Starting YouTube audio download for ${videoDoc._id} to ${tmpDir}...`);
     await youtubedl(youtubeUrl, {
-      output: audioBase,          // yt-dlp appends the real extension automatically
+      output: audioBase,
       format: 'bestaudio',
       noCheckCertificates: true,
       noWarnings: true
@@ -201,12 +267,30 @@ const downloadAndProcessYouTube = async (videoDoc, youtubeUrl) => {
     
     console.log('YouTube audio downloaded successfully');
     
-    // aiService will detect the actual file extension (webm/m4a/etc.) automatically
-    await runAIPipeline(videoDoc, audioBaseAbsolute);
+    // Find the actual file (yt-dlp appends the extension automatically)
+    const files = fs.readdirSync(tmpDir);
+    for (const file of files) {
+      if (file.startsWith(`${videoDoc._id}-audio`)) {
+        resolvedPath = path.join(tmpDir, file);
+        break;
+      }
+    }
+
+    if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+      throw new Error("Failed to locate downloaded audio file in /tmp");
+    }
+
+    // Call AI pipeline using the temporary file
+    await runAIPipeline(videoDoc, resolvedPath);
+
+    // Cleanup tmp file
+    if (fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
 
   } catch (error) {
+    if (resolvedPath && fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
     console.error('Error in YouTube download pipeline:', error);
     videoDoc.status = 'failed';
     await videoDoc.save();
+    throw error;
   }
 };

@@ -13,7 +13,10 @@ const videoSchema = new mongoose.Schema(
     },
     url: {
       type: String, // Can be YouTube URL or local/S3 path
-      required: true,
+      required: false, // Make it false because it can be null after deletion
+    },
+    cloudinaryPublicId: {
+      type: String, // Required to delete from Cloudinary later
     },
     source: {
       type: String,

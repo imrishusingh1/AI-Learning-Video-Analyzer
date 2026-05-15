@@ -9,7 +9,8 @@ const transcriptSchema = new mongoose.Schema(
     },
     fullText: {
       type: String,
-      required: true,
+      required: false,
+      default: '',
     },
     segments: [
       {

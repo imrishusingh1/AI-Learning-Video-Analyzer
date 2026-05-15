@@ -1,21 +1,13 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById } from '../controllers/videoController.js';
+import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById, cleanupOldVideos } from '../controllers/videoController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Multer storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -30,6 +22,8 @@ const upload = multer({
 });
 
 // Routes
+// Note: cleanup route should be BEFORE /:id to avoid 'cleanup' being interpreted as an ID
+router.route('/cleanup').get(cleanupOldVideos);
 router.route('/').get(protect, getMyVideos);
 router.route('/:id').get(protect, getVideoById);
 router.post('/upload', protect, upload.single('video'), uploadVideo);

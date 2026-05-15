@@ -69,37 +69,56 @@ export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
         "quiz": [
           {
             "question": "A multiple choice question testing a core concept?",
-            "options": ["A", "B", "C", "D"],
+            "options": ["First option as full text", "Second option as full text", "Third option as full text", "Fourth option as full text"],
             "correctAnswer": "The correct option exactly as written in options array",
             "explanation": "Why this answer is correct"
           }
         ]
       }
-      Respond ONLY with valid JSON. Do not include markdown formatting like \`\`\`json around the response.
+      IMPORTANT RULES:
+      - The "quiz" array MUST contain EXACTLY 5 different questions covering different topics from the audio.
+      - Each question MUST have EXACTLY 4 options as full meaningful sentences or phrases (not just "A", "B", "C", "D").
+      - The "correctAnswer" MUST be the exact string of one of the options.
+      - Respond ONLY with valid JSON. Do not include markdown formatting like \`\`\`json around the response.
     `;
     
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [
+    // Retry logic for 503 / overload errors (up to 3 attempts)
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await model.generateContent({
+          contents: [
             {
-              fileData: {
-                mimeType: uploadResult.file.mimeType,
-                fileUri: uploadResult.file.uri
-              }
-            },
-            { text: prompt }
-          ]
+              role: 'user',
+              parts: [
+                {
+                  fileData: {
+                    mimeType: uploadResult.file.mimeType,
+                    fileUri: uploadResult.file.uri
+                  }
+                },
+                { text: prompt }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+        const responseText = result.response.text();
+        return JSON.parse(responseText);
+      } catch (err) {
+        lastError = err;
+        if (err.status === 503 && attempt < 3) {
+          const delay = attempt * 5000; // 5s, 10s
+          console.log(`Gemini 503 on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          throw err;
         }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
       }
-    });
-    
-    const responseText = result.response.text();
-    return JSON.parse(responseText);
+    }
+    throw lastError;
     
   } catch (error) {
     console.error('Error in Gemini AI Processing:', error);

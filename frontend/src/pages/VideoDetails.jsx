@@ -11,6 +11,8 @@ const VideoDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('notes');
+  const [userAnswers, setUserAnswers] = useState({});
+  const [submittedAnswers, setSubmittedAnswers] = useState({});
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -173,42 +175,89 @@ const VideoDetails = () => {
                 {/* ── Quiz tab ── */}
                 {activeTab === 'quiz' && quiz && (
                   <div>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem' }}>Test Your Knowledge</h2>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Test Your Knowledge</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>Select your answer and click Submit to reveal the result.</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                      {quiz.questions.map((q, idx) => (
-                        <div key={idx} style={{
-                          background: '#fff', border: '1.5px solid var(--border)',
-                          borderRadius: '16px', padding: '1.5rem'
-                        }}>
-                          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>
-                            {idx + 1}. {q.question}
-                          </h3>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                            {q.options.map((opt, i) => (
-                              <label key={i} htmlFor={`q${idx}-opt${i}`} style={{
-                                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                                padding: '0.75rem 1rem', borderRadius: '10px',
-                                border: '1.5px solid var(--border)', cursor: 'pointer',
-                                color: 'var(--text)', fontSize: '0.9rem',
-                                transition: 'border-color 0.15s, background 0.15s'
-                              }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}
+                      {quiz.questions.map((q, idx) => {
+                        const submitted = submittedAnswers[idx] !== undefined;
+                        const userAnswer = userAnswers[idx];
+                        const isCorrect = submitted && userAnswer === q.correctAnswer;
+                        return (
+                          <div key={idx} style={{
+                            background: '#fff', border: `1.5px solid ${submitted ? (isCorrect ? '#6ee7b7' : '#fca5a5') : 'var(--border)'}`,
+                            borderRadius: '16px', padding: '1.5rem',
+                            transition: 'border-color 0.3s'
+                          }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>
+                              {idx + 1}. {q.question}
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                              {q.options.map((opt, i) => {
+                                let borderColor = 'var(--border)';
+                                let background = 'transparent';
+                                if (submitted) {
+                                  if (opt === q.correctAnswer) { borderColor = '#059669'; background = '#d1fae5'; }
+                                  else if (opt === userAnswer && !isCorrect) { borderColor = '#dc2626'; background = '#fee2e2'; }
+                                } else if (userAnswer === opt) {
+                                  borderColor = 'var(--primary)'; background = 'var(--surface-2)';
+                                }
+                                return (
+                                  <label key={i} htmlFor={`q${idx}-opt${i}`} style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                    padding: '0.75rem 1rem', borderRadius: '10px',
+                                    border: `1.5px solid ${borderColor}`, background,
+                                    cursor: submitted ? 'default' : 'pointer',
+                                    color: 'var(--text)', fontSize: '0.9rem',
+                                    transition: 'all 0.15s'
+                                  }}>
+                                    <input
+                                      type="radio"
+                                      name={`question-${idx}`}
+                                      id={`q${idx}-opt${i}`}
+                                      disabled={submitted}
+                                      checked={userAnswer === opt}
+                                      onChange={() => setUserAnswers(prev => ({ ...prev, [idx]: opt }))}
+                                      style={{ accentColor: 'var(--primary)', width: '16px', height: '16px', flexShrink: 0 }}
+                                    />
+                                    {opt}
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            {/* Submit button — hidden after submission */}
+                            {!submitted && (
+                              <button
+                                onClick={() => {
+                                  if (!userAnswer) return;
+                                  setSubmittedAnswers(prev => ({ ...prev, [idx]: userAnswer }));
+                                }}
+                                disabled={!userAnswer}
+                                style={{
+                                  marginTop: '1rem', padding: '0.5rem 1.25rem',
+                                  background: userAnswer ? 'var(--primary)' : '#e5e7eb',
+                                  color: userAnswer ? '#fff' : '#9ca3af',
+                                  border: 'none', borderRadius: '8px', fontWeight: 600,
+                                  fontSize: '0.875rem', cursor: userAnswer ? 'pointer' : 'not-allowed',
+                                  transition: 'all 0.15s'
+                                }}
                               >
-                                <input type="radio" name={`question-${idx}`} id={`q${idx}-opt${i}`}
-                                  style={{ accentColor: 'var(--primary)', width: '16px', height: '16px', flexShrink: 0 }} />
-                                {opt}
-                              </label>
-                            ))}
+                                Submit Answer
+                              </button>
+                            )}
+
+                            {/* Reveal correct answer ONLY after submission */}
+                            {submitted && (
+                              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                                <p style={{ fontSize: '0.875rem', fontWeight: 600, color: isCorrect ? '#059669' : '#dc2626', marginBottom: '0.25rem' }}>
+                                  {isCorrect ? '✓ Correct!' : '✗ Incorrect'} — {q.correctAnswer}
+                                </p>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{q.explanation}</p>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#059669', marginBottom: '0.25rem' }}>
-                              ✓ Correct Answer: {q.correctAnswer}
-                            </p>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{q.explanation}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -224,15 +273,21 @@ const VideoDetails = () => {
                   Original Source
                 </h3>
                 <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
-                  {video.source === 'youtube' ? (
+                  {!video.url && video.source === 'upload' ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#888', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5' }}>
+                        Video expired after 7 days to save space,<br />but your AI notes are kept forever!
+                      </p>
+                    </div>
+                  ) : video.source === 'youtube' ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${video.url.includes('v=') ? video.url.split('v=')[1] : video.url.split('/').pop()}`}
+                      src={`https://www.youtube.com/embed/${video.url?.includes('v=') ? video.url.split('v=')[1] : video.url?.split('/').pop()}`}
                       style={{ width: '100%', height: '100%', border: 'none' }}
                       allowFullScreen
                     />
                   ) : (
                     <video
-                      src={`http://localhost:5000/${video.url.replace(/\\/g, '/')}`}
+                      src={video.url}
                       controls
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     />
