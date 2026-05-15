@@ -5,9 +5,8 @@ import Quiz from '../models/Quiz.js';
 import path from 'path';
 import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
-import { transcribeAndAnalyzeAudio } from '../services/aiService.js';
+import { transcribeAndAnalyzeAudio, analyzeYouTubeUrl } from '../services/aiService.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService.js';
-import ytdl from '@distube/ytdl-core';
 import fs from 'fs';
 
 // @desc    Upload local video and start processing
@@ -72,21 +71,21 @@ export const processYouTubeUrl = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid YouTube URL' });
     }
 
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails?.title || 'YouTube Video';
-
-    // Create DB entry
+    // Create DB entry with URL as title placeholder — Gemini will extract real title from video
     const video = await Video.create({
       user: req.user._id,
-      title,
+      title: 'Processing...',
       url,
       source: 'youtube',
       status: 'processing',
     });
 
-    // Process Synchronously
-    await downloadAndProcessYouTube(video, url);
-    res.status(201).json({ message: 'YouTube video processed successfully', video });
+    // Process in background — pass URL directly to Gemini, no download needed
+    downloadAndProcessYouTube(video, url).catch(err => {
+      console.error('Background YouTube processing failed:', err);
+    });
+
+    res.status(201).json({ message: 'YouTube video queued for processing', video });
 
   } catch (error) {
     console.error('YouTube Processing Error:', error);
@@ -251,42 +250,42 @@ const processVideoPipeline = async (videoDoc, videoFilePath) => {
 };
 
 const downloadAndProcessYouTube = async (videoDoc, youtubeUrl) => {
-  let resolvedPath = null;
   try {
-    const tmpDir = os.tmpdir();
-    resolvedPath = path.join(tmpDir, `${videoDoc._id}-audio.webm`);
+    console.log(`Sending ${videoDoc._id} to Gemini via YouTube URL (no download needed)...`);
     
-    console.log(`Starting YouTube audio download for ${videoDoc._id} to ${tmpDir}...`);
-    
-    // Download audio using pure JS library (bypasses python requirement on Vercel)
-    await new Promise((resolve, reject) => {
-      const audioStream = ytdl(youtubeUrl, { quality: 'highestaudio' });
-      const writeStream = fs.createWriteStream(resolvedPath);
-      
-      audioStream.pipe(writeStream);
-      
-      audioStream.on('error', (err) => reject(err));
-      writeStream.on('finish', () => resolve());
-      writeStream.on('error', (err) => reject(err));
+    // Gemini natively supports YouTube URLs — pass it directly, no download required!
+    const aiResults = await analyzeYouTubeUrl(youtubeUrl);
+
+    // Save AI results to DB
+    await Transcript.create({
+      video: videoDoc._id,
+      fullText: aiResults.transcript || 'Transcript not available.',
+      segments: []
     });
-    
-    console.log('YouTube audio downloaded successfully');
-    
-    if (!fs.existsSync(resolvedPath)) {
-      throw new Error("Failed to locate downloaded audio file in /tmp");
-    }
 
-    // Call AI pipeline using the temporary file
-    await runAIPipeline(videoDoc, resolvedPath);
+    await Note.create({
+      video: videoDoc._id,
+      user: videoDoc.user,
+      summary: aiResults.summary,
+      detailedNotes: aiResults.notes,
+      topics: aiResults.topics
+    });
 
-    // Cleanup tmp file
-    if (fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
+    await Quiz.create({
+      video: videoDoc._id,
+      user: videoDoc.user,
+      questions: aiResults.quiz
+    });
 
+    // Extract title from Gemini response if available
+    videoDoc.title = aiResults.title || videoDoc.title;
+    videoDoc.status = 'completed';
+    await videoDoc.save();
+
+    console.log(`Processing complete for ${videoDoc._id}`);
   } catch (error) {
-    if (resolvedPath && fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
-    console.error('Error in YouTube download pipeline:', error);
+    console.error('Error in YouTube processing pipeline:', error);
     videoDoc.status = 'failed';
     await videoDoc.save();
-    throw error;
   }
 };

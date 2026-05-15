@@ -22,12 +22,81 @@ const MIME_MAP = {
   '.aac':  'audio/aac',
 };
 
+const ANALYSIS_PROMPT = `
+  Please analyze this video/audio and return a JSON object with the following structure:
+  {
+    "transcript": "The full exact text transcript of what was spoken.",
+    "summary": "A 2-3 paragraph detailed summary of the main points.",
+    "topics": [
+      {
+        "name": "Topic Name",
+        "description": "Short explanation of the topic"
+      }
+    ],
+    "notes": "Detailed study notes formatted in Markdown with bullet points.",
+    "quiz": [
+      {
+        "question": "A multiple choice question testing a core concept?",
+        "options": ["First option as full text", "Second option as full text", "Third option as full text", "Fourth option as full text"],
+        "correctAnswer": "The correct option exactly as written in options array",
+        "explanation": "Why this answer is correct"
+      }
+    ]
+  }
+  IMPORTANT RULES:
+  - The "quiz" array MUST contain EXACTLY 5 different questions covering different topics from the video.
+  - Each question MUST have EXACTLY 4 options as full meaningful sentences or phrases (not just "A", "B", "C", "D").
+  - The "correctAnswer" MUST be the exact string of one of the options.
+  - Respond ONLY with valid JSON. Do not include markdown formatting like \`\`\`json around the response.
+`;
+
+const runGeminiWithRetry = async (contents) => {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents,
+        generationConfig: { responseMimeType: 'application/json' }
+      });
+      return JSON.parse(result.response.text());
+    } catch (err) {
+      lastError = err;
+      if (err.status === 503 && attempt < 3) {
+        const delay = attempt * 5000;
+        console.log(`Gemini 503 on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+};
+
+// ── For YouTube URLs: pass URL directly to Gemini (no download, no Python, no bots) ──
+export const analyzeYouTubeUrl = async (youtubeUrl) => {
+  try {
+    console.log(`Sending YouTube URL directly to Gemini: ${youtubeUrl}`);
+    const contents = [{
+      role: 'user',
+      parts: [
+        { fileData: { mimeType: 'video/*', fileUri: youtubeUrl } },
+        { text: ANALYSIS_PROMPT }
+      ]
+    }];
+    return await runGeminiWithRetry(contents);
+  } catch (error) {
+    console.error('Error in Gemini YouTube Analysis:', error);
+    throw error;
+  }
+};
+
+// ── For uploaded MP4 files: upload to Gemini File API then analyze ──
 export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
   try {
-    // 1. Detect actual file on disk (yt-dlp may save as .webm/.m4a even if .mp3 was requested)
     let resolvedPath = audioFilePath;
     if (!fs.existsSync(resolvedPath)) {
-      // Try common alternative extensions yt-dlp may have used
       const base = resolvedPath.replace(/\.[^.]+$/, '');
       for (const ext of ['.webm', '.m4a', '.ogg', '.opus', '.mp4', '.aac']) {
         if (fs.existsSync(base + ext)) {
@@ -41,85 +110,27 @@ export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
     const ext = path.extname(resolvedPath).toLowerCase();
     const mimeType = MIME_MAP[ext] || 'audio/webm';
 
-    // 2. Upload audio file to Gemini File API
     console.log(`Uploading ${resolvedPath} (${mimeType}) to Gemini...`);
     const uploadResult = await fileManager.uploadFile(resolvedPath, {
       mimeType,
       displayName: 'Video Audio Extract',
     });
-    
     console.log(`File uploaded: ${uploadResult.file.uri}`);
-    
-    // 2. Setup Gemini model
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    // 3. Prompt for unified analysis
-    const prompt = `
-      Please analyze this audio file and return a JSON object with the following structure:
-      {
-        "transcript": "The full exact text transcript of what was spoken.",
-        "summary": "A 2-3 paragraph detailed summary of the main points.",
-        "topics": [
-          {
-            "name": "Topic Name",
-            "description": "Short explanation of the topic"
+
+    const contents = [{
+      role: 'user',
+      parts: [
+        {
+          fileData: {
+            mimeType: uploadResult.file.mimeType,
+            fileUri: uploadResult.file.uri
           }
-        ],
-        "notes": "Detailed study notes formatted in Markdown with bullet points.",
-        "quiz": [
-          {
-            "question": "A multiple choice question testing a core concept?",
-            "options": ["First option as full text", "Second option as full text", "Third option as full text", "Fourth option as full text"],
-            "correctAnswer": "The correct option exactly as written in options array",
-            "explanation": "Why this answer is correct"
-          }
-        ]
-      }
-      IMPORTANT RULES:
-      - The "quiz" array MUST contain EXACTLY 5 different questions covering different topics from the audio.
-      - Each question MUST have EXACTLY 4 options as full meaningful sentences or phrases (not just "A", "B", "C", "D").
-      - The "correctAnswer" MUST be the exact string of one of the options.
-      - Respond ONLY with valid JSON. Do not include markdown formatting like \`\`\`json around the response.
-    `;
-    
-    // Retry logic for 503 / overload errors (up to 3 attempts)
-    let lastError;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const result = await model.generateContent({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  fileData: {
-                    mimeType: uploadResult.file.mimeType,
-                    fileUri: uploadResult.file.uri
-                  }
-                },
-                { text: prompt }
-              ]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-          }
-        });
-        const responseText = result.response.text();
-        return JSON.parse(responseText);
-      } catch (err) {
-        lastError = err;
-        if (err.status === 503 && attempt < 3) {
-          const delay = attempt * 5000; // 5s, 10s
-          console.log(`Gemini 503 on attempt ${attempt}. Retrying in ${delay / 1000}s...`);
-          await new Promise(r => setTimeout(r, delay));
-        } else {
-          throw err;
-        }
-      }
-    }
-    throw lastError;
-    
+        },
+        { text: ANALYSIS_PROMPT }
+      ]
+    }];
+    return await runGeminiWithRetry(contents);
+
   } catch (error) {
     console.error('Error in Gemini AI Processing:', error);
     throw error;
