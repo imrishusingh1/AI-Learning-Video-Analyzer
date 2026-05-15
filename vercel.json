@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "name": "synapseai-frontend",
+      "src": "frontend",
+      "framework": "vite"
+    },
+    {
+      "name": "synapseai-backend",
+      "src": "backend",
+      "framework": null
+    }
+  ]
+}
