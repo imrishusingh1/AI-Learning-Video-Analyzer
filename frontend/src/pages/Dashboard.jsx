@@ -91,13 +91,13 @@ const Dashboard = () => {
           </p>
         </motion.div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
+        <div className="flex flex-col lg:flex-row gap-6">
 
           {/* ── Upload Panel ── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="card"
+            className="card flex-1"
             style={{ padding: '2rem' }}
           >
             {/* Tabs */}
@@ -203,6 +203,7 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
+            className="w-full lg:w-[340px]"
           >
             <div className="card" style={{ padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

@@ -182,10 +182,10 @@ const VideoDetails = () => {
             <p style={{ color: 'var(--text-muted)' }}>There was an error analyzing this video. Please try again with a different file.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
 
             {/* ── Main Content ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="flex-1 flex flex-col gap-5 w-full">
 
               {/* Tab bar */}
               <div style={{
@@ -361,7 +361,7 @@ const VideoDetails = () => {
             </div>
 
             {/* ── Sidebar ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="w-full lg:w-[320px] flex flex-col gap-5">
 
               {/* Video player card */}
               <div className="card" style={{ padding: '1.25rem' }}>
