@@ -69,10 +69,10 @@ const VideoDetails = () => {
     doc.setFont('helvetica', 'normal');
     
     const cleanNotes = data.note.detailedNotes
-      .replace(/\\*\\*/g, '') // remove bold markers
+      .replace(/\*\*/g, '') // remove bold markers
       .replace(/#/g, '') // remove headers markers
-      .replace(/\\*/g, '•') // replace lists with bullets
-      .split('\\n');
+      .replace(/\*/g, '•') // replace lists with bullets
+      .split('\n');
       
     for (const line of cleanNotes) {
       if (line.trim() === '') {
