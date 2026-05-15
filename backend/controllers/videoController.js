@@ -72,8 +72,8 @@ export const processYouTubeUrl = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid YouTube URL' });
     }
 
-    const info = await youtubedl(url, { dumpSingleJson: true, noCheckCertificates: true, noWarnings: true });
-    const title = info.title || 'YouTube Video';
+    const info = await ytdl.getInfo(url);
+    const title = info.videoDetails?.title || 'YouTube Video';
 
     // Create DB entry
     const video = await Video.create({
