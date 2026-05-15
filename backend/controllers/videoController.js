@@ -7,7 +7,7 @@ import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
 import { transcribeAndAnalyzeAudio } from '../services/aiService.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService.js';
-import youtubedl from 'youtube-dl-exec';
+import ytdl from '@distube/ytdl-core';
 import fs from 'fs';
 
 // @desc    Upload local video and start processing
@@ -254,29 +254,25 @@ const downloadAndProcessYouTube = async (videoDoc, youtubeUrl) => {
   let resolvedPath = null;
   try {
     const tmpDir = os.tmpdir();
-    const audioBase = path.join(tmpDir, `${videoDoc._id}-audio`);
+    resolvedPath = path.join(tmpDir, `${videoDoc._id}-audio.webm`);
     
-    // Download best audio stream directly to /tmp
     console.log(`Starting YouTube audio download for ${videoDoc._id} to ${tmpDir}...`);
-    await youtubedl(youtubeUrl, {
-      output: audioBase,
-      format: 'bestaudio',
-      noCheckCertificates: true,
-      noWarnings: true
+    
+    // Download audio using pure JS library (bypasses python requirement on Vercel)
+    await new Promise((resolve, reject) => {
+      const audioStream = ytdl(youtubeUrl, { quality: 'highestaudio' });
+      const writeStream = fs.createWriteStream(resolvedPath);
+      
+      audioStream.pipe(writeStream);
+      
+      audioStream.on('error', (err) => reject(err));
+      writeStream.on('finish', () => resolve());
+      writeStream.on('error', (err) => reject(err));
     });
     
     console.log('YouTube audio downloaded successfully');
     
-    // Find the actual file (yt-dlp appends the extension automatically)
-    const files = fs.readdirSync(tmpDir);
-    for (const file of files) {
-      if (file.startsWith(`${videoDoc._id}-audio`)) {
-        resolvedPath = path.join(tmpDir, file);
-        break;
-      }
-    }
-
-    if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+    if (!fs.existsSync(resolvedPath)) {
       throw new Error("Failed to locate downloaded audio file in /tmp");
     }
 
