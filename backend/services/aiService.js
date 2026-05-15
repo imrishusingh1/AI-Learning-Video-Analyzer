@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
 import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,12 +10,41 @@ const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 const fileManager = new GoogleAIFileManager(apiKey);
 
+const MIME_MAP = {
+  '.mp3':  'audio/mpeg',
+  '.mp4':  'audio/mp4',
+  '.m4a':  'audio/mp4',
+  '.webm': 'audio/webm',
+  '.ogg':  'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.wav':  'audio/wav',
+  '.flac': 'audio/flac',
+  '.aac':  'audio/aac',
+};
+
 export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
   try {
-    // 1. Upload audio file to Gemini File API
-    console.log(`Uploading ${audioFilePath} to Gemini...`);
-    const uploadResult = await fileManager.uploadFile(audioFilePath, {
-      mimeType: 'audio/mp3',
+    // 1. Detect actual file on disk (yt-dlp may save as .webm/.m4a even if .mp3 was requested)
+    let resolvedPath = audioFilePath;
+    if (!fs.existsSync(resolvedPath)) {
+      // Try common alternative extensions yt-dlp may have used
+      const base = resolvedPath.replace(/\.[^.]+$/, '');
+      for (const ext of ['.webm', '.m4a', '.ogg', '.opus', '.mp4', '.aac']) {
+        if (fs.existsSync(base + ext)) {
+          resolvedPath = base + ext;
+          console.log(`Resolved audio file: ${resolvedPath}`);
+          break;
+        }
+      }
+    }
+
+    const ext = path.extname(resolvedPath).toLowerCase();
+    const mimeType = MIME_MAP[ext] || 'audio/webm';
+
+    // 2. Upload audio file to Gemini File API
+    console.log(`Uploading ${resolvedPath} (${mimeType}) to Gemini...`);
+    const uploadResult = await fileManager.uploadFile(resolvedPath, {
+      mimeType,
       displayName: 'Video Audio Extract',
     });
     

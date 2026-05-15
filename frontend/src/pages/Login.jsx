@@ -2,64 +2,122 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
+import { BrainCircuit, Mail, Lock, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-[calc(100vh-64px)]">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass-panel p-8 rounded-2xl w-full max-w-md"
+    <div className="hero-bg" style={{ minHeight: 'calc(100vh - 68px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{ width: '100%', maxWidth: '440px' }}
       >
-        <h2 className="text-3xl font-bold mb-6 text-center">Welcome Back</h2>
-        {error && <div className="bg-red-500/20 text-red-300 p-3 rounded mb-4 text-sm">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-primary"
-              required 
-            />
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: '52px', height: '52px', background: 'var(--primary)',
+            borderRadius: '16px', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', margin: '0 auto 1.25rem'
+          }}>
+            <BrainCircuit size={26} color="#fff" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-primary"
-              required 
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="w-full bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-lg transition mt-4"
-          >
-            Log In
-          </button>
-        </form>
-        <p className="mt-6 text-center text-slate-400 text-sm">
-          Don't have an account? <Link to="/register" className="text-primary hover:underline">Sign up</Link>
-        </p>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: '0.375rem' }}>
+            Welcome back
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
+            Sign in to continue learning
+          </p>
+        </div>
+
+        {/* Card */}
+        <div className="card" style={{ padding: '2.25rem' }}>
+          {error && (
+            <div style={{
+              background: '#fee2e2', border: '1px solid #fecaca', color: '#991b1b',
+              padding: '0.875rem 1rem', borderRadius: '12px', marginBottom: '1.25rem',
+              fontSize: '0.875rem', fontWeight: 500
+            }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>
+                Email address
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={16} color="var(--text-light)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field"
+                  placeholder="rishu@rishurajput.com"
+                  style={{ paddingLeft: '2.75rem' }}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={16} color="var(--text-light)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="••••••••"
+                  style={{ paddingLeft: '2.75rem' }}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '0.9375rem', marginTop: '0.5rem', fontSize: '0.9375rem', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Signing in…' : (
+                <>Sign in <ArrowRight size={16} /></>
+              )}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: '1.375rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
+              Sign up free
+            </Link>
+          </p>
+        </div>
       </motion.div>
     </div>
   );

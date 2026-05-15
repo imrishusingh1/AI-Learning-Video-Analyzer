@@ -120,18 +120,8 @@ export const getVideoById = async (req, res) => {
 
 // --- Background Pipeline Methods ---
 
-const processVideoPipeline = async (videoDoc, videoFilePath) => {
+const runAIPipeline = async (videoDoc, audioPath) => {
   try {
-    // 1. Update status to processing
-    videoDoc.status = 'processing';
-    await videoDoc.save();
-    
-    // 2. Extract Audio
-    const audioPath = path.join('uploads', `${videoDoc._id}-audio.mp3`);
-    console.log(`Starting audio extraction for ${videoDoc._id}...`);
-    await extractAudio(videoFilePath, audioPath);
-    console.log(`Audio extracted to ${audioPath}`);
-
     // 3. AI Processing (Transcription, Notes, Quiz)
     console.log(`Starting AI processing for ${videoDoc._id}...`);
     const aiResults = await transcribeAndAnalyzeAudio(audioPath);
@@ -163,7 +153,29 @@ const processVideoPipeline = async (videoDoc, videoFilePath) => {
     console.log(`Processing complete for ${videoDoc._id}`);
     
   } catch (error) {
-    console.error('Error in processing pipeline:', error);
+    console.error('Error in AI processing pipeline:', error);
+    videoDoc.status = 'failed';
+    await videoDoc.save();
+  }
+};
+
+const processVideoPipeline = async (videoDoc, videoFilePath) => {
+  try {
+    // 1. Update status to processing
+    videoDoc.status = 'processing';
+    await videoDoc.save();
+    
+    // 2. Extract Audio
+    const audioPath = path.join('uploads', `${videoDoc._id}-audio.mp3`);
+    console.log(`Starting audio extraction for ${videoDoc._id}...`);
+    await extractAudio(videoFilePath, audioPath);
+    console.log(`Audio extracted to ${audioPath}`);
+
+    // Call AI pipeline
+    await runAIPipeline(videoDoc, audioPath);
+    
+  } catch (error) {
+    console.error('Error in local processing pipeline:', error);
     videoDoc.status = 'failed';
     await videoDoc.save();
   }
@@ -174,21 +186,23 @@ const downloadAndProcessYouTube = async (videoDoc, youtubeUrl) => {
     videoDoc.status = 'processing';
     await videoDoc.save();
 
-    const videoPathRelative = path.join('uploads', `${videoDoc._id}.mp4`);
-    const videoPathAbsolute = path.join(process.cwd(), videoPathRelative);
+    // Use a base path — yt-dlp will pick the actual extension (.webm/.m4a etc.)
+    const audioBase = path.join('uploads', `${videoDoc._id}-audio`);
+    const audioBaseAbsolute = path.join(process.cwd(), audioBase);
     
-    // Download highest quality audio-containing format to mp4 using relative path
+    // Download best audio stream directly — NO conversion needed (no ffmpeg required)
+    console.log(`Starting YouTube audio download for ${videoDoc._id}...`);
     await youtubedl(youtubeUrl, {
-      output: videoPathRelative,
-      format: 'best',
+      output: audioBase,          // yt-dlp appends the real extension automatically
+      format: 'bestaudio',
       noCheckCertificates: true,
       noWarnings: true
     });
     
-    console.log('YouTube video downloaded successfully');
+    console.log('YouTube audio downloaded successfully');
     
-    // Now use the standard pipeline
-    await processVideoPipeline(videoDoc, videoPathAbsolute);
+    // aiService will detect the actual file extension (webm/m4a/etc.) automatically
+    await runAIPipeline(videoDoc, audioBaseAbsolute);
 
   } catch (error) {
     console.error('Error in YouTube download pipeline:', error);

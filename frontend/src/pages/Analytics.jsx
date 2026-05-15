@@ -1,10 +1,35 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 import { Video, FileText, Brain, Loader2, CheckCircle2 } from 'lucide-react';
 
-const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+const COLORS = ['#5B4EF8', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+const StatCard = ({ icon, bg, color, label, value, borderColor, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    className="card"
+    style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: `3px solid ${borderColor}` }}
+  >
+    <div style={{ background: bg, padding: '0.875rem', borderRadius: '14px', flexShrink: 0 }}>
+      <div style={{ color }}>{icon}</div>
+    </div>
+    <div>
+      <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}
+      </p>
+      <h3 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
+        {value}
+      </h3>
+    </div>
+  </motion.div>
+);
 
 const Analytics = () => {
   const [data, setData] = useState(null);
@@ -25,91 +50,126 @@ const Analytics = () => {
     fetchAnalytics();
   }, []);
 
-  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
-  if (error) return <div className="text-center text-red-400 mt-20 text-xl">{error}</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 68px)', background: 'var(--surface)' }}>
+      <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ textAlign: 'center', marginTop: '5rem', color: '#dc2626', fontSize: '1.125rem' }}>
+      {error}
+    </div>
+  );
 
   const { stats, topicData, activityData } = data;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <h1 className="text-3xl font-bold mb-8">Learning Analytics</h1>
+    <div style={{ background: 'var(--surface)', minHeight: 'calc(100vh - 68px)' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-panel p-6 rounded-2xl flex items-center space-x-4 border-b-4 border-primary">
-          <div className="bg-primary/20 p-4 rounded-xl text-primary"><Video className="h-8 w-8" /></div>
-          <div><p className="text-slate-400 text-sm">Total Videos</p><h3 className="text-3xl font-bold">{stats.totalVideos}</h3></div>
-        </motion.div>
-        
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-panel p-6 rounded-2xl flex items-center space-x-4 border-b-4 border-emerald-500">
-          <div className="bg-emerald-500/20 p-4 rounded-xl text-emerald-400"><FileText className="h-8 w-8" /></div>
-          <div><p className="text-slate-400 text-sm">Notes Generated</p><h3 className="text-3xl font-bold">{stats.totalNotes}</h3></div>
+        {/* Page header */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.375rem' }}>
+            Analytics
+          </p>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Learning Analytics
+          </h1>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-panel p-6 rounded-2xl flex items-center space-x-4 border-b-4 border-amber-500">
-          <div className="bg-amber-500/20 p-4 rounded-xl text-amber-400"><Brain className="h-8 w-8" /></div>
-          <div><p className="text-slate-400 text-sm">Quizzes Generated</p><h3 className="text-3xl font-bold">{stats.totalQuizzes}</h3></div>
-        </motion.div>
+        {/* Stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          <StatCard icon={<Video size={22} />} bg="#ede9ff" color="#5B4EF8" label="Total Videos" value={stats.totalVideos} borderColor="#5B4EF8" delay={0} />
+          <StatCard icon={<FileText size={22} />} bg="#d1fae5" color="#059669" label="Notes Generated" value={stats.totalNotes} borderColor="#10B981" delay={0.1} />
+          <StatCard icon={<Brain size={22} />} bg="#fef3c7" color="#d97706" label="Quizzes Generated" value={stats.totalQuizzes} borderColor="#F59E0B" delay={0.2} />
+          <StatCard icon={<CheckCircle2 size={22} />} bg="#f3e8ff" color="#7c3aed" label="Completed" value={stats.completedVideos} borderColor="#8B5CF6" delay={0.3} />
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-panel p-6 rounded-2xl flex items-center space-x-4 border-b-4 border-purple-500">
-          <div className="bg-purple-500/20 p-4 rounded-xl text-purple-400"><CheckCircle2 className="h-8 w-8" /></div>
-          <div><p className="text-slate-400 text-sm">Completed Processing</p><h3 className="text-3xl font-bold">{stats.completedVideos}</h3></div>
-        </motion.div>
-      </div>
+        {/* Charts */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Activity Chart */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }} className="glass-panel p-6 rounded-2xl">
-          <h2 className="text-xl font-bold mb-6">Learning Activity (Last 7 Days)</h2>
-          <div className="h-80 w-full text-sm">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="date" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" allowDecimals={false} />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} />
-                <Bar dataKey="videos" fill="#4F46E5" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
-        {/* Topics Pie Chart */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }} className="glass-panel p-6 rounded-2xl">
-          <h2 className="text-xl font-bold mb-6">Top Topics Explored</h2>
-          <div className="h-80 w-full flex justify-center">
-            {topicData && topicData.length > 0 ? (
+          {/* Activity bar chart */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="card"
+            style={{ padding: '1.75rem' }}
+          >
+            <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.5rem' }}>
+              Learning Activity — Last 7 Days
+            </h2>
+            <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={topicData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={80}
-                    outerRadius={110}
-                    paddingAngle={5}
-                    dataKey="count"
-                  >
-                    {topicData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} />
-                </PieChart>
+                <BarChart data={activityData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e3ff" vertical={false} />
+                  <XAxis dataKey="date" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="var(--text-muted)" allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(91,78,248,0.06)' }}
+                    contentStyle={{ background: '#fff', border: '1px solid #e5e3ff', borderRadius: '10px', color: 'var(--text)', fontSize: '13px' }}
+                  />
+                  <Bar dataKey="videos" fill="#5B4EF8" radius={[6, 6, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-slate-500 italic">No topic data available yet.</div>
-            )}
-          </div>
-          <div className="flex flex-wrap justify-center gap-4 mt-4 text-sm">
-            {topicData.map((entry, index) => (
-              <div key={index} className="flex items-center">
-                <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                <span className="text-slate-300">{entry.name}</span>
+            </div>
+          </motion.div>
+
+          {/* Topics pie chart */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="card"
+            style={{ padding: '1.75rem' }}
+          >
+            <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.5rem' }}>
+              Top Topics Explored
+            </h2>
+            <div style={{ height: '240px', display: 'flex', justifyContent: 'center' }}>
+              {topicData && topicData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={topicData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={4}
+                      dataKey="count"
+                    >
+                      {topicData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: '#fff', border: '1px solid #e5e3ff', borderRadius: '10px', color: 'var(--text)', fontSize: '13px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                  No topic data available yet.
+                </div>
+              )}
+            </div>
+
+            {/* Legend */}
+            {topicData && topicData.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.625rem', marginTop: '1rem', justifyContent: 'center' }}>
+                {topicData.map((entry, index) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: COLORS[index % COLORS.length], flexShrink: 0 }} />
+                    {entry.name}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </motion.div>
+            )}
+          </motion.div>
+
+        </div>
       </div>
     </div>
   );

@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { Upload, Link as LinkIcon, FileVideo, CheckCircle2, Loader2, PlaySquare, Clock } from 'lucide-react';
+import {
+  Upload, Link as LinkIcon, FileVideo, CheckCircle2,
+  Loader2, PlaySquare, Clock, Sparkles
+} from 'lucide-react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'youtube'
+  const [activeTab, setActiveTab] = useState('upload');
   const [file, setFile] = useState(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,18 +34,15 @@ const Dashboard = () => {
   const handleFileUpload = async (e) => {
     e.preventDefault();
     if (!file) return setError('Please select a file');
-    
     const formData = new FormData();
     formData.append('video', file);
-    
     setLoading(true);
     setError('');
-    
     try {
       const { data } = await axios.post('/api/videos/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setSuccess('Video uploaded! AI is processing it now...');
+      setSuccess('Video uploaded! AI is processing it now…');
       setTimeout(() => navigate('/videos/' + data.video._id), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Upload failed');
@@ -54,13 +54,11 @@ const Dashboard = () => {
   const handleYoutubeSubmit = async (e) => {
     e.preventDefault();
     if (!youtubeUrl) return setError('Please enter a URL');
-    
     setLoading(true);
     setError('');
-    
     try {
       const { data } = await axios.post('/api/videos/youtube', { url: youtubeUrl });
-      setSuccess('YouTube video queued! AI is processing it now...');
+      setSuccess('YouTube video queued! AI is processing it now…');
       setTimeout(() => navigate('/videos/' + data.video._id), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to process YouTube URL');
@@ -69,133 +67,189 @@ const Dashboard = () => {
     }
   };
 
+  const statusClass = (s) =>
+    s === 'completed' ? 'status-completed' : s === 'failed' ? 'status-failed' : 'status-pending';
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome, {user?.name}</h1>
-          <p className="text-slate-400 mt-2">Ready to transform another video?</p>
-        </div>
-      </div>
+    <div style={{ background: 'var(--surface)', minHeight: 'calc(100vh - 68px)' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Upload Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+        {/* Page header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 glass-panel p-8 rounded-2xl"
+          style={{ marginBottom: '2rem' }}
         >
-          <div className="flex space-x-4 mb-8 border-b border-slate-700 pb-4">
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`flex items-center space-x-2 pb-2 px-2 transition ${activeTab === 'upload' ? 'text-primary border-b-2 border-primary font-bold' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Upload className="h-5 w-5" />
-              <span>Upload MP4</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('youtube')}
-              className={`flex items-center space-x-2 pb-2 px-2 transition ${activeTab === 'youtube' ? 'text-red-500 border-b-2 border-red-500 font-bold' : 'text-slate-400 hover:text-white'}`}
-            >
-              <LinkIcon className="h-5 w-5" />
-              <span>YouTube Link</span>
-            </button>
-          </div>
-
-          {error && <div className="bg-red-500/20 border border-red-500 text-red-300 p-4 rounded-lg mb-6">{error}</div>}
-          {success && <div className="bg-emerald-500/20 border border-emerald-500 text-emerald-300 p-4 rounded-lg mb-6 flex items-center"><CheckCircle2 className="mr-2 h-5 w-5" />{success}</div>}
-
-          {activeTab === 'upload' ? (
-            <form onSubmit={handleFileUpload} className="space-y-6">
-              <div className="border-2 border-dashed border-slate-600 rounded-xl p-12 text-center hover:border-primary transition cursor-pointer bg-slate-800/50">
-                <input 
-                  type="file" 
-                  accept="video/mp4,video/mkv,video/avi" 
-                  onChange={(e) => setFile(e.target.files[0])}
-                  className="hidden" 
-                  id="video-upload"
-                />
-                <label htmlFor="video-upload" className="cursor-pointer flex flex-col items-center">
-                  <FileVideo className="h-16 w-16 text-slate-400 mb-4" />
-                  <span className="text-lg font-medium text-slate-200">
-                    {file ? file.name : 'Click to browse or drag and drop'}
-                  </span>
-                  <span className="text-sm text-slate-400 mt-2">MP4, MKV, AVI up to 500MB</span>
-                </label>
-              </div>
-              <button 
-                disabled={loading || !file}
-                className="w-full bg-primary hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition flex justify-center items-center"
-              >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : 'Process Video'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleYoutubeSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">YouTube URL</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <LinkIcon className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="url"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition"
-                    required
-                  />
-                </div>
-              </div>
-              <button 
-                disabled={loading || !youtubeUrl}
-                className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition flex justify-center items-center"
-              >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : 'Process YouTube Video'}
-              </button>
-            </form>
-          )}
+          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.375rem' }}>
+            Dashboard
+          </p>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Welcome back, {user?.name} 👋
+          </h1>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.375rem' }}>
+            Ready to transform another video?
+          </p>
         </motion.div>
 
-        {/* Recent Videos Sidebar */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass-panel p-6 rounded-2xl h-fit"
-        >
-          <h2 className="text-xl font-bold mb-4 flex items-center">
-            <PlaySquare className="mr-2 h-5 w-5 text-secondary" />
-            Recent Videos
-          </h2>
-          <div className="space-y-4">
-            {recentVideos.length === 0 ? (
-              <p className="text-slate-400 text-sm italic">You haven't processed any videos yet.</p>
-            ) : (
-              recentVideos.slice(0, 5).map(video => (
-                <Link key={video._id} to={`/videos/${video._id}`} className="block bg-slate-800/50 p-4 rounded-xl border border-slate-700 hover:border-primary transition group">
-                  <h3 className="font-semibold text-slate-200 group-hover:text-primary transition truncate">{video.title}</h3>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="flex items-center text-xs text-slate-400">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {new Date(video.createdAt).toLocaleDateString()}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      video.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
-                      video.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-                      'bg-amber-500/20 text-amber-400'
-                    }`}>
-                      {video.status}
-                    </span>
-                  </div>
-                </Link>
-              ))
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
+
+          {/* ── Upload Panel ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card"
+            style={{ padding: '2rem' }}
+          >
+            {/* Tabs */}
+            <div style={{
+              display: 'flex', gap: '0.5rem', padding: '0.375rem',
+              background: 'var(--surface)', borderRadius: '100px',
+              marginBottom: '2rem', width: 'fit-content'
+            }}>
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`tab-btn ${activeTab === 'upload' ? 'active' : ''}`}
+              >
+                <Upload size={15} />
+                Upload MP4
+              </button>
+              <button
+                onClick={() => setActiveTab('youtube')}
+                className={`tab-btn ${activeTab === 'youtube' ? 'active' : ''}`}
+              >
+                <LinkIcon size={15} />
+                YouTube Link
+              </button>
+            </div>
+
+            {/* Alerts */}
+            {error && (
+              <div style={{
+                background: '#fee2e2', border: '1px solid #fecaca', color: '#991b1b',
+                padding: '0.875rem 1rem', borderRadius: '12px', marginBottom: '1.25rem',
+                fontSize: '0.875rem', fontWeight: 500
+              }}>{error}</div>
             )}
-          </div>
-        </motion.div>
+            {success && (
+              <div style={{
+                background: '#d1fae5', border: '1px solid #6ee7b7', color: '#065f46',
+                padding: '0.875rem 1rem', borderRadius: '12px', marginBottom: '1.25rem',
+                fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem'
+              }}>
+                <CheckCircle2 size={16} /> {success}
+              </div>
+            )}
 
+            {activeTab === 'upload' ? (
+              <form onSubmit={handleFileUpload} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <label htmlFor="video-upload" className="dropzone" style={{ cursor: 'pointer' }}>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/mkv,video/avi"
+                    onChange={(e) => setFile(e.target.files[0])}
+                    style={{ display: 'none' }}
+                    id="video-upload"
+                  />
+                  <FileVideo size={44} color="var(--primary)" style={{ marginBottom: '0.875rem', opacity: 0.7 }} />
+                  <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem', fontSize: '1.0625rem' }}>
+                    {file ? file.name : 'Click to browse or drag & drop'}
+                  </p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>MP4, MKV, AVI — up to 500 MB</p>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={loading || !file}
+                  className="btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '0.9375rem', fontSize: '0.9375rem', opacity: loading || !file ? 0.6 : 1, cursor: loading || !file ? 'not-allowed' : 'pointer' }}
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Sparkles size={16} /> Process Video</>}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleYoutubeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>
+                    YouTube URL
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <LinkIcon size={16} color="var(--text-light)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                    <input
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      className="input-field"
+                      style={{ paddingLeft: '2.75rem' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !youtubeUrl}
+                  className="btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '0.9375rem', fontSize: '0.9375rem', opacity: loading || !youtubeUrl ? 0.6 : 1, cursor: loading || !youtubeUrl ? 'not-allowed' : 'pointer' }}
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Sparkles size={16} /> Process YouTube Video</>}
+                </button>
+              </form>
+            )}
+          </motion.div>
+
+          {/* ── Recent Videos Sidebar ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+          >
+            <div className="card" style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <PlaySquare size={18} color="var(--primary)" />
+                Recent Videos
+              </h2>
+
+              {recentVideos.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                  <FileVideo size={36} color="var(--text-light)" style={{ margin: '0 auto 0.75rem' }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    No videos processed yet.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                  {recentVideos.slice(0, 5).map(video => (
+                    <Link
+                      key={video._id}
+                      to={`/videos/${video._id}`}
+                      style={{
+                        display: 'block', textDecoration: 'none',
+                        padding: '0.875rem', borderRadius: '14px',
+                        border: '1.5px solid var(--border)', background: '#fff',
+                        transition: 'border-color 0.2s, box-shadow 0.2s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(91,78,248,0.1)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                    >
+                      <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.875rem', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {video.title}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <Clock size={12} />
+                          {new Date(video.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className={statusClass(video.status)}>{video.status}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+        </div>
       </div>
     </div>
   );

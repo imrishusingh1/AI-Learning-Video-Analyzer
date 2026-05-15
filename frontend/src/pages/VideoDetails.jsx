@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { FileText, Brain, PenTool, LayoutDashboard, Loader2 } from 'lucide-react';
+import { FileText, Brain, PenTool, LayoutDashboard, Loader2, Tag } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 const VideoDetails = () => {
@@ -10,7 +10,7 @@ const VideoDetails = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('notes'); // notes, transcript, quiz
+  const [activeTab, setActiveTab] = useState('notes');
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -25,7 +25,6 @@ const VideoDetails = () => {
     };
 
     fetchVideoData();
-    // In a real app, we'd poll this or use websockets if status === 'processing'
     const interval = setInterval(() => {
       if (data?.video?.status === 'processing' || data?.video?.status === 'pending') {
         fetchVideoData();
@@ -35,173 +34,236 @@ const VideoDetails = () => {
     return () => clearInterval(interval);
   }, [id, data?.video?.status]);
 
-  if (loading && !data) return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
-  if (error) return <div className="text-center text-red-400 mt-20 text-xl">{error}</div>;
+  if (loading && !data) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 68px)', background: 'var(--surface)' }}>
+      <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ textAlign: 'center', marginTop: '5rem', color: '#dc2626', fontSize: '1.125rem' }}>
+      {error}
+    </div>
+  );
 
   const { video, transcript, note, quiz } = data;
-
   const isProcessing = video.status === 'processing' || video.status === 'pending';
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <Link to="/dashboard" className="text-primary hover:underline flex items-center mb-4">
-          <LayoutDashboard className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Link>
-        <h1 className="text-3xl font-bold">{video.title}</h1>
-        <div className="flex items-center mt-2 space-x-4">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            video.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500' :
-            video.status === 'failed' ? 'bg-red-500/20 text-red-400 border border-red-500' :
-            'bg-amber-500/20 text-amber-400 border border-amber-500'
-          }`}>
-            {video.status.toUpperCase()}
-          </span>
-          <span className="text-slate-400 text-sm">Uploaded on {new Date(video.createdAt).toLocaleDateString()}</span>
-        </div>
-      </div>
+  const statusStyle = video.status === 'completed'
+    ? { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }
+    : video.status === 'failed'
+    ? { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' }
+    : { background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' };
 
-      {isProcessing ? (
-        <div className="glass-panel p-12 text-center rounded-2xl flex flex-col items-center justify-center">
-          <Loader2 className="animate-spin h-16 w-16 text-primary mb-6" />
-          <h2 className="text-2xl font-bold mb-2">AI is analyzing your video...</h2>
-          <p className="text-slate-400 max-w-md mx-auto">
-            This usually takes a few minutes depending on the video length. 
-            We are extracting audio, transcribing, and generating study notes.
-            This page will automatically refresh when done.
-          </p>
+  return (
+    <div style={{ background: 'var(--surface)', minHeight: 'calc(100vh - 68px)' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: '2rem' }}>
+          <Link to="/dashboard" style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+            color: 'var(--primary)', textDecoration: 'none', fontWeight: 500,
+            fontSize: '0.875rem', marginBottom: '1rem'
+          }}>
+            <LayoutDashboard size={15} /> Back to Dashboard
+          </Link>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: '0.625rem' }}>
+            {video.title}
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{
+              ...statusStyle, padding: '3px 12px', borderRadius: '100px',
+              fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em'
+            }}>
+              {video.status.toUpperCase()}
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+              Uploaded on {new Date(video.createdAt).toLocaleDateString()}
+            </span>
+          </div>
         </div>
-      ) : video.status === 'failed' ? (
-        <div className="glass-panel p-12 text-center rounded-2xl border-red-500/50">
-          <h2 className="text-2xl font-bold text-red-400 mb-2">Processing Failed</h2>
-          <p className="text-slate-400">There was an error analyzing this video. Please try again with a different file.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Tabs */}
-            <div className="flex space-x-2 border-b border-slate-700 pb-2">
-              <button 
-                onClick={() => setActiveTab('notes')}
-                className={`px-4 py-2 rounded-lg font-medium transition flex items-center ${activeTab === 'notes' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+
+        {isProcessing ? (
+          <div className="card" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+            <Loader2 size={52} color="var(--primary)" style={{ margin: '0 auto 1.25rem', animation: 'spin 1s linear infinite' }} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.75rem' }}>
+              AI is analyzing your video…
+            </h2>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto', lineHeight: 1.7 }}>
+              This usually takes a few minutes. We're extracting audio, transcribing, and generating study notes. This page will refresh automatically.
+            </p>
+          </div>
+        ) : video.status === 'failed' ? (
+          <div className="card" style={{ padding: '3rem 2rem', textAlign: 'center', borderColor: '#fca5a5' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626', marginBottom: '0.75rem' }}>Processing Failed</h2>
+            <p style={{ color: 'var(--text-muted)' }}>There was an error analyzing this video. Please try again with a different file.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.5rem', alignItems: 'start' }}>
+
+            {/* ── Main Content ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+              {/* Tab bar */}
+              <div style={{
+                display: 'flex', gap: '0.375rem', padding: '0.375rem',
+                background: '#fff', border: '1.5px solid var(--border)',
+                borderRadius: '100px', width: 'fit-content'
+              }}>
+                {[
+                  { key: 'notes', label: 'Study Notes', icon: <FileText size={14} /> },
+                  { key: 'transcript', label: 'Transcript', icon: <PenTool size={14} /> },
+                  { key: 'quiz', label: 'AI Quiz', icon: <Brain size={14} /> },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Content panel */}
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="card"
+                style={{ padding: '2rem', minHeight: '500px' }}
               >
-                <FileText className="mr-2 h-4 w-4" /> Study Notes
-              </button>
-              <button 
-                onClick={() => setActiveTab('transcript')}
-                className={`px-4 py-2 rounded-lg font-medium transition flex items-center ${activeTab === 'transcript' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-              >
-                <PenTool className="mr-2 h-4 w-4" /> Transcript
-              </button>
-              <button 
-                onClick={() => setActiveTab('quiz')}
-                className={`px-4 py-2 rounded-lg font-medium transition flex items-center ${activeTab === 'quiz' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-              >
-                <Brain className="mr-2 h-4 w-4" /> AI Quiz
-              </button>
+                {/* ── Notes tab ── */}
+                {activeTab === 'notes' && note && (
+                  <div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.875rem' }}>Summary</h2>
+                    <p style={{ color: 'var(--text-muted)', lineHeight: 1.8, marginBottom: '2rem', fontSize: '0.9375rem' }}>
+                      {note.summary}
+                    </p>
+
+                    <div style={{ borderTop: '1.5px solid var(--border)', paddingTop: '1.5rem' }}>
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>Detailed Notes</h2>
+                      <div style={{
+                        color: 'var(--text)', lineHeight: 1.8, fontSize: '0.9375rem',
+                      }} className="markdown-light">
+                        <ReactMarkdown>{note.detailedNotes}</ReactMarkdown>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Transcript tab ── */}
+                {activeTab === 'transcript' && transcript && (
+                  <div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>Full Transcript</h2>
+                    <div style={{
+                      background: 'var(--surface)', border: '1.5px solid var(--border)',
+                      borderRadius: '14px', padding: '1.5rem',
+                      color: 'var(--text)', lineHeight: 1.9, fontSize: '0.9375rem',
+                      height: '560px', overflowY: 'auto', whiteSpace: 'pre-wrap'
+                    }}>
+                      {transcript.fullText}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Quiz tab ── */}
+                {activeTab === 'quiz' && quiz && (
+                  <div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem' }}>Test Your Knowledge</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      {quiz.questions.map((q, idx) => (
+                        <div key={idx} style={{
+                          background: '#fff', border: '1.5px solid var(--border)',
+                          borderRadius: '16px', padding: '1.5rem'
+                        }}>
+                          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1rem' }}>
+                            {idx + 1}. {q.question}
+                          </h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                            {q.options.map((opt, i) => (
+                              <label key={i} htmlFor={`q${idx}-opt${i}`} style={{
+                                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                padding: '0.75rem 1rem', borderRadius: '10px',
+                                border: '1.5px solid var(--border)', cursor: 'pointer',
+                                color: 'var(--text)', fontSize: '0.9rem',
+                                transition: 'border-color 0.15s, background 0.15s'
+                              }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}
+                              >
+                                <input type="radio" name={`question-${idx}`} id={`q${idx}-opt${i}`}
+                                  style={{ accentColor: 'var(--primary)', width: '16px', height: '16px', flexShrink: 0 }} />
+                                {opt}
+                              </label>
+                            ))}
+                          </div>
+                          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#059669', marginBottom: '0.25rem' }}>
+                              ✓ Correct Answer: {q.correctAnswer}
+                            </p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{q.explanation}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             </div>
 
-            {/* Content Rendering */}
-            <motion.div 
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-panel p-8 rounded-2xl min-h-[500px]"
-            >
-              {activeTab === 'notes' && note && (
-                <div className="prose prose-invert max-w-none">
-                  <h2 className="text-2xl font-bold mb-4">Summary</h2>
-                  <p className="text-slate-300 leading-relaxed mb-8">{note.summary}</p>
-                  
-                  <h2 className="text-2xl font-bold mb-4 border-t border-slate-700 pt-6">Detailed Notes</h2>
-                  <div className="text-slate-300 leading-relaxed markdown-body">
-                    <ReactMarkdown>{note.detailedNotes}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
+            {/* ── Sidebar ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-              {activeTab === 'transcript' && transcript && (
-                <div className="prose prose-invert max-w-none">
-                  <h2 className="text-2xl font-bold mb-6">Full Transcript</h2>
-                  <div className="bg-slate-900/50 p-6 rounded-xl text-slate-300 leading-relaxed h-[600px] overflow-y-auto whitespace-pre-wrap">
-                    {transcript.fullText}
-                  </div>
+              {/* Video player card */}
+              <div className="card" style={{ padding: '1.25rem' }}>
+                <h3 style={{ fontWeight: 700, color: 'var(--text)', marginBottom: '0.875rem', fontSize: '0.9375rem' }}>
+                  Original Source
+                </h3>
+                <div style={{ borderRadius: '12px', overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
+                  {video.source === 'youtube' ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${video.url.includes('v=') ? video.url.split('v=')[1] : video.url.split('/').pop()}`}
+                      style={{ width: '100%', height: '100%', border: 'none' }}
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      src={`http://localhost:5000/${video.url.replace(/\\/g, '/')}`}
+                      controls
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                  )}
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'quiz' && quiz && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">Test Your Knowledge</h2>
-                  <div className="space-y-8">
-                    {quiz.questions.map((q, idx) => (
-                      <div key={idx} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700">
-                        <h3 className="text-lg font-semibold mb-4">{idx + 1}. {q.question}</h3>
-                        <div className="space-y-3">
-                          {q.options.map((opt, i) => (
-                            <div key={i} className="flex items-center space-x-3 p-3 rounded-lg bg-slate-900 border border-slate-600 hover:border-primary cursor-pointer transition">
-                              <input type="radio" name={`question-${idx}`} id={`q${idx}-opt${i}`} className="text-primary focus:ring-primary" />
-                              <label htmlFor={`q${idx}-opt${i}`} className="cursor-pointer w-full text-slate-300">{opt}</label>
-                            </div>
-                          ))}
-                        </div>
-                        {/* In a fully polished version, we'd add interactive state to check the answer here */}
-                        <div className="mt-4 pt-4 border-t border-slate-700">
-                          <p className="text-sm font-medium text-emerald-400">Correct Answer: {q.correctAnswer}</p>
-                          <p className="text-sm text-slate-400 mt-1">{q.explanation}</p>
-                        </div>
-                      </div>
+              {/* Topics card */}
+              {note && note.topics && note.topics.length > 0 && (
+                <div className="card" style={{ padding: '1.25rem' }}>
+                  <h3 style={{ fontWeight: 700, color: 'var(--text)', marginBottom: '0.875rem', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <Tag size={15} color="var(--primary)" /> Key Topics
+                  </h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {note.topics.map((t, i) => (
+                      <span key={i} style={{
+                        background: 'var(--surface-2)', border: '1px solid var(--border)',
+                        color: 'var(--primary)', padding: '4px 12px',
+                        borderRadius: '100px', fontSize: '0.8125rem', fontWeight: 600
+                      }}>
+                        {t.name || t}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
-            </motion.div>
-
-          </div>
-
-          {/* Sidebar / Video Player */}
-          <div className="space-y-6">
-            <div className="glass-panel p-4 rounded-2xl">
-              <h3 className="font-bold mb-4 px-2">Original Source</h3>
-              {video.source === 'youtube' ? (
-                <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                  <iframe 
-                    src={`https://www.youtube.com/embed/${video.url.split('v=')[1]}`} 
-                    className="w-full h-full"
-                    allowFullScreen
-                  ></iframe>
-                </div>
-              ) : (
-                <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                  <video 
-                    src={`http://localhost:5000/${video.url.replace(/\\/g, '/')}`} 
-                    controls 
-                    className="w-full h-full object-contain"
-                  ></video>
-                </div>
-              )}
             </div>
 
-            {/* Topics Card */}
-            {note && note.topics && note.topics.length > 0 && (
-              <div className="glass-panel p-6 rounded-2xl">
-                <h3 className="font-bold mb-4">Key Topics</h3>
-                <div className="flex flex-wrap gap-2">
-                  {note.topics.map((t, i) => (
-                    <span key={i} className="bg-primary/20 text-indigo-300 border border-primary/30 px-3 py-1 rounded-full text-sm font-medium">
-                      {t.name || t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
