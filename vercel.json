@@ -1,15 +1,13 @@
 {
-  "version": 2,
-  "projects": [
-    {
-      "name": "synapseai-frontend",
-      "src": "frontend",
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "routePrefix": "/",
       "framework": "vite"
     },
-    {
-      "name": "synapseai-backend",
-      "src": "backend",
-      "framework": null
+    "backend": {
+      "entrypoint": "backend",
+      "routePrefix": "/_/backend"
     }
-  ]
+  }
 }
