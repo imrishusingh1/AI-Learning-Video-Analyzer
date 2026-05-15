@@ -25,6 +25,7 @@ const MIME_MAP = {
 const ANALYSIS_PROMPT = `
   Please analyze this video/audio and return a JSON object with the following structure:
   {
+    "title": "A short, accurate title summarizing the video content",
     "transcript": "The full exact text transcript of what was spoken.",
     "summary": "A 2-3 paragraph detailed summary of the main points.",
     "topics": [
