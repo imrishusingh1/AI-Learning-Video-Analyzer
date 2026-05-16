@@ -95,26 +95,64 @@ const VideoDetails = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchVideoData = async () => {
+      const res = await axios.get(`/api/videos/${id}`);
+      if (!cancelled) setData(res.data);
+      return res.data;
+    };
+
+    const runPipeline = async () => {
       try {
-        const res = await axios.get(`/api/videos/${id}`);
-        setData(res.data);
+        const videoData = await fetchVideoData();
+        const video = videoData?.video;
+        const status = video?.status;
+
+        if (!video || status === 'completed' || status === 'failed') {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
+        // Phase 2: File is uploaded to Gemini — poll until ACTIVE, then analyze
+        if (status === 'uploaded' && video.geminiFileName) {
+          try {
+            const geminiRes = await axios.get(`/api/videos/gemini-status/${video.geminiFileName}`);
+            if (geminiRes.data.state === 'ACTIVE') {
+              // Phase 3: Trigger AI analysis
+              await axios.post('/api/videos/analyze', {
+                videoId: id,
+                geminiFileName: video.geminiFileName,
+              });
+              await fetchVideoData();
+            }
+          } catch (geminiErr) {
+            console.warn('Gemini status check:', geminiErr.message);
+          }
+        }
+
+        if (!cancelled) setLoading(false);
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load video details');
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setError(err.response?.data?.message || 'Failed to load video details');
+          setLoading(false);
+        }
       }
     };
 
-    fetchVideoData();
+    runPipeline();
+
     const interval = setInterval(() => {
       const s = data?.video?.status;
       if (s === 'processing' || s === 'pending' || s === 'uploaded') {
-        fetchVideoData();
+        runPipeline();
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [id, data?.video?.status]);
 
   if (!data) return (
