@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById, cleanupOldVideos, getUploadSignature } from '../controllers/videoController.js';
+import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById, cleanupOldVideos, getUploadSignature, getGeminiStatus, analyzeVideo } from '../controllers/videoController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -31,3 +31,5 @@ router.route('/:id').get(protect, getVideoById);
 router.post('/upload', protect, uploadVideo);
 router.get('/gemini-status/:fileName', protect, getGeminiStatus);
 router.post('/analyze', protect, analyzeVideo);
+
+export default router;
