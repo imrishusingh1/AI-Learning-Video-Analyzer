@@ -117,7 +117,7 @@ const VideoDetails = () => {
     return () => clearInterval(interval);
   }, [id, data?.video?.status]);
 
-  if (loading && !data) return (
+  if (!data) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 68px)', background: 'var(--surface)' }}>
       <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
     </div>
