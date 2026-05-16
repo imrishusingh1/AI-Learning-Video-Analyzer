@@ -16,18 +16,36 @@ connectDB();
 
 const app = express();
 
-// Middleware
+// ── CORS ────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  'https://synapseai.rishurajput.com',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  // Handle preflight immediately
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+// ────────────────────────────────────────────────────────────────────────────
+
 app.use(cors({
-  origin: [
-    'https://synapseai.rishurajput.com',
-    'http://localhost:5173', 
-    'http://localhost:5174', 
-    'http://localhost:5175',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:5175'
-  ],
-  credentials: true
+  origin: allowedOrigins,
+  credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
