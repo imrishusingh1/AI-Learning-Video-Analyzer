@@ -6,47 +6,64 @@ import path from 'path';
 import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
 import { transcribeAndAnalyzeAudio, analyzeYouTubeUrl } from '../services/aiService.js';
-import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService.js';
+import { uploadToCloudinary, deleteFromCloudinary, generateUploadSignature } from '../services/cloudinaryService.js';
 import fs from 'fs';
 
-// @desc    Upload local video and start processing
+// @desc    Get Cloudinary Upload Signature
+// @route   GET /api/videos/upload-signature
+// @access  Private
+export const getUploadSignature = (req, res) => {
+  try {
+    const signatureData = generateUploadSignature();
+    res.json(signatureData);
+  } catch (error) {
+    console.error('Signature Error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Process uploaded video URL
 // @route   POST /api/videos/upload
 // @access  Private
 export const uploadVideo = async (req, res) => {
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ message: 'Please upload a video file' });
+    const { fileUrl, publicId, fileName, title } = req.body;
+
+    if (!fileUrl) {
+      return res.status(400).json({ message: 'Please provide a file URL' });
     }
 
-    const fileName = req.file.originalname;
-    const title = req.body.title || fileName;
+    const videoTitle = title || fileName || 'Uploaded Document';
 
-    // 1. Upload to Cloudinary (Persistent Storage)
-    console.log(`Starting Cloudinary upload for ${fileName}...`);
-    const cloudUpload = await uploadToCloudinary(req.file.buffer);
-
-    // 2. Create DB entry
+    // 1. Create DB entry
     const video = await Video.create({
       user: req.user._id,
-      title,
-      url: cloudUpload.url, // Store Cloudinary Viewable URL
-      cloudinaryPublicId: cloudUpload.publicId, // Track for deletion
+      title: videoTitle,
+      url: fileUrl, // Store Cloudinary Viewable URL
+      cloudinaryPublicId: publicId, // Track for deletion
       source: 'upload',
       status: 'processing',
     });
 
-    // 3. Save to /tmp for Gemini Processing
+    // 2. Download from Cloudinary to /tmp
     const tmpPath = path.join(os.tmpdir(), `${video._id}-${fileName}`);
-    fs.writeFileSync(tmpPath, req.file.buffer);
+    console.log(`Downloading ${fileUrl} to ${tmpPath}...`);
+    
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`);
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    fs.writeFileSync(tmpPath, buffer);
 
     try {
-      // 4. Run AI Pipeline Synchronously (Vercel requires this)
+      // 3. Run AI Pipeline Synchronously
       await runAIPipeline(video, tmpPath);
       
       // Cleanup tmp file
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
       
-      // 5. Send Response
+      // 4. Send Response
       res.status(201).json({ message: 'Video uploaded and processed successfully', video });
     } catch (pipelineError) {
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);

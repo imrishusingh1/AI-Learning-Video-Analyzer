@@ -34,18 +34,43 @@ const Dashboard = () => {
   const handleFileUpload = async (e) => {
     e.preventDefault();
     if (!file) return setError('Please select a file');
-    const formData = new FormData();
-    formData.append('video', file);
+    
     setLoading(true);
     setError('');
+    
     try {
-      const { data } = await axios.post('/api/videos/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      // 1. Get Signature from Backend
+      const sigRes = await axios.get('/api/videos/upload-signature');
+      const { signature, timestamp, folder, cloudName, apiKey } = sigRes.data;
+
+      // 2. Upload direct to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('signature', signature);
+      formData.append('timestamp', timestamp);
+      formData.append('folder', folder);
+      formData.append('api_key', apiKey);
+
+      const cloudinaryRes = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+        formData
+      );
+
+      const fileUrl = cloudinaryRes.data.secure_url;
+      const publicId = cloudinaryRes.data.public_id;
+
+      // 3. Send Cloudinary URL to Backend
+      const { data } = await axios.post('/api/videos/upload', {
+        fileUrl,
+        publicId,
+        fileName: file.name
       });
-      setSuccess('Video uploaded! AI is processing it now…');
+      
+      setSuccess('Content uploaded! AI is processing it now…');
       setTimeout(() => navigate('/videos/' + data.video._id), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Upload failed');
+      console.error(err);
+      setError(err.response?.data?.message || err.message || 'Upload failed');
     } finally {
       setLoading(false);
     }

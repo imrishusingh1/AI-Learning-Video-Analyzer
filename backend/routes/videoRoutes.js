@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById, cleanupOldVideos } from '../controllers/videoController.js';
+import { uploadVideo, processYouTubeUrl, getMyVideos, getVideoById, cleanupOldVideos, getUploadSignature } from '../controllers/videoController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -25,9 +25,10 @@ const upload = multer({
 // Routes
 // Note: cleanup route should be BEFORE /:id to avoid 'cleanup' being interpreted as an ID
 router.route('/cleanup').get(cleanupOldVideos);
+router.route('/upload-signature').get(protect, getUploadSignature);
 router.route('/').get(protect, getMyVideos);
 router.route('/:id').get(protect, getVideoById);
-router.post('/upload', protect, upload.single('video'), uploadVideo);
+router.post('/upload', protect, uploadVideo);
 router.post('/youtube', protect, processYouTubeUrl);
 
 export default router;
