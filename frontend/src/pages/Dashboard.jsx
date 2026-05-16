@@ -73,7 +73,7 @@ const Dashboard = () => {
       });
       
       setSuccess('Content uploaded! AI is processing it now…');
-      setTimeout(() => navigate('/videos/' + data.video._id), 3000);
+      setTimeout(() => navigate('/videos/' + data.videoId), 3000);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || err.message || 'Upload failed');

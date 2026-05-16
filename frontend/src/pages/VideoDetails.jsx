@@ -108,7 +108,8 @@ const VideoDetails = () => {
 
     fetchVideoData();
     const interval = setInterval(() => {
-      if (data?.video?.status === 'processing' || data?.video?.status === 'pending') {
+      const s = data?.video?.status;
+      if (s === 'processing' || s === 'pending' || s === 'uploaded') {
         fetchVideoData();
       }
     }, 5000);
@@ -129,7 +130,7 @@ const VideoDetails = () => {
   );
 
   const { video, transcript, note, quiz } = data;
-  const isProcessing = video.status === 'processing' || video.status === 'pending';
+  const isProcessing = video.status === 'processing' || video.status === 'pending' || video.status === 'uploaded';
 
   const statusStyle = video.status === 'completed'
     ? { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }
