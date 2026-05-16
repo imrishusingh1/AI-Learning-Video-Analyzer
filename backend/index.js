@@ -37,7 +37,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   // Handle preflight immediately
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
+    return res.status(200).end();
   }
   next();
 });
