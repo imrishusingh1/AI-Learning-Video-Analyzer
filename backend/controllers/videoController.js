@@ -5,7 +5,7 @@ import Quiz from '../models/Quiz.js';
 import path from 'path';
 import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
-import { uploadFileToGemini, analyzeGeminiFile, fileManager } from '../services/aiService.js';
+import { uploadFileToGemini, analyzeGeminiFile, analyzeYouTubeUrl, fileManager } from '../services/aiService.js';
 import { uploadToCloudinary, deleteFromCloudinary, generateUploadSignature } from '../services/cloudinaryService.js';
 import fs from 'fs';
 
