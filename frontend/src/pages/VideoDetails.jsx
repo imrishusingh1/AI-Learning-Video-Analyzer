@@ -115,9 +115,9 @@ const VideoDetails = () => {
         }
 
         // Phase 2: File is uploaded to Gemini — poll until ACTIVE, then analyze
-        if (status === 'uploaded' && video.geminiFileName) {
+        if (status === 'uploaded') {
           try {
-            const geminiRes = await axios.get(`/api/videos/gemini-status/${video.geminiFileName}`);
+            const geminiRes = await axios.get(`/api/videos/${id}/gemini-status`);
             if (geminiRes.data.state === 'ACTIVE') {
               // Phase 3: Trigger AI analysis
               await axios.post('/api/videos/analyze', {

@@ -76,13 +76,15 @@ export const uploadVideo = async (req, res) => {
   }
 };
 
-// @desc    Get Gemini file processing status
-// @route   GET /api/videos/gemini-status/:fileName
+// @desc    Get Gemini file processing status for a video
+// @route   GET /api/videos/:id/gemini-status
 // @access  Private
 export const getGeminiStatus = async (req, res) => {
   try {
-    const { fileName } = req.params;
-    const fileInfo = await fileManager.getFile(fileName);
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ message: 'Video not found' });
+    if (!video.geminiFileName) return res.json({ state: 'PENDING' });
+    const fileInfo = await fileManager.getFile(video.geminiFileName);
     res.json({ state: fileInfo.state });
   } catch (error) {
     console.error('Gemini status error:', error);
