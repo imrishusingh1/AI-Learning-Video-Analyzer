@@ -57,7 +57,7 @@ const ANALYSIS_PROMPT = `
 `;
 
 const runGeminiWithRetry = async (contents) => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
