@@ -5,7 +5,7 @@ import Quiz from '../models/Quiz.js';
 import path from 'path';
 import os from 'os';
 import { extractAudio } from '../utils/ffmpegHelper.js';
-import { transcribeAndAnalyzeAudio, analyzeYouTubeUrl } from '../services/aiService.js';
+import { uploadFileToGemini, analyzeGeminiFile, fileManager } from '../services/aiService.js';
 import { uploadToCloudinary, deleteFromCloudinary, generateUploadSignature } from '../services/cloudinaryService.js';
 import fs from 'fs';
 
@@ -22,59 +22,117 @@ export const getUploadSignature = (req, res) => {
   }
 };
 
-// @desc    Process uploaded video URL
+// @desc    Process uploaded video URL (creates DB entry and uploads to Gemini)
 // @route   POST /api/videos/upload
 // @access  Private
 export const uploadVideo = async (req, res) => {
   try {
     const { fileUrl, publicId, fileName, title } = req.body;
-
     if (!fileUrl) {
       return res.status(400).json({ message: 'Please provide a file URL' });
     }
 
     const videoTitle = title || fileName || 'Uploaded Document';
 
-    // 1. Create DB entry
+    // 1. Create DB entry (status pending until Gemini file is ready)
     const video = await Video.create({
       user: req.user._id,
       title: videoTitle,
-      url: fileUrl, // Store Cloudinary Viewable URL
-      cloudinaryPublicId: publicId, // Track for deletion
+      url: fileUrl,
+      cloudinaryPublicId: publicId,
       source: 'upload',
-      status: 'processing',
+      status: 'pending',
     });
 
-    // 2. Download from Cloudinary to /tmp
+    // 2. Download file to temp directory
     const tmpPath = path.join(os.tmpdir(), `${video._id}-${fileName}`);
     console.log(`Downloading ${fileUrl} to ${tmpPath}...`);
-    
     const response = await fetch(fileUrl);
     if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`);
-    
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     fs.writeFileSync(tmpPath, buffer);
 
-    try {
-      // 3. Run AI Pipeline Synchronously
-      await runAIPipeline(video, tmpPath);
-      
-      // Cleanup tmp file
-      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
-      
-      // 4. Send Response
-      res.status(201).json({ message: 'Video uploaded and processed successfully', video });
-    } catch (pipelineError) {
-      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
-      throw pipelineError;
-    }
+    // 3. Upload to Gemini and store the file name
+    const geminiFileName = await uploadFileToGemini(tmpPath);
 
+    // Cleanup temp file
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+
+    // 4. Update video record with Gemini reference
+    video.geminiFileName = geminiFileName;
+    video.status = 'uploaded';
+    await video.save();
+
+    // 5. Respond with IDs for client to poll
+    res.status(201).json({
+      message: 'File uploaded and queued for processing',
+      videoId: video._id,
+      geminiFileName,
+    });
   } catch (error) {
     console.error('Upload Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Get Gemini file processing status
+// @route   GET /api/videos/gemini-status/:fileName
+// @access  Private
+export const getGeminiStatus = async (req, res) => {
+  try {
+    const { fileName } = req.params;
+    const fileInfo = await fileManager.getFile(fileName);
+    res.json({ state: fileInfo.state });
+  } catch (error) {
+    console.error('Gemini status error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Analyze Gemini file and store results
+// @route   POST /api/videos/analyze
+// @access  Private
+export const analyzeVideo = async (req, res) => {
+  try {
+    const { videoId, geminiFileName } = req.body;
+    if (!videoId || !geminiFileName) {
+      return res.status(400).json({ message: 'videoId and geminiFileName required' });
+    }
+    const video = await Video.findById(videoId);
+    if (!video) return res.status(404).json({ message: 'Video not found' });
+
+    // Run analysis on Gemini file (expects ACTIVE state)
+    const aiResults = await analyzeGeminiFile(geminiFileName);
+
+    // Store results (reuse logic from runAIPipeline but without audio extraction)
+    await Transcript.create({
+      video: video._id,
+      fullText: aiResults.transcript || 'Transcript not available.',
+      segments: [],
+    });
+    await Note.create({
+      video: video._id,
+      user: video.user,
+      summary: aiResults.summary,
+      detailedNotes: aiResults.notes,
+      topics: aiResults.topics,
+    });
+    await Quiz.create({
+      video: video._id,
+      user: video.user,
+      questions: aiResults.quiz,
+    });
+    video.title = aiResults.title || video.title;
+    video.status = 'completed';
+    await video.save();
+    res.json({ message: 'Analysis complete', video });
+  } catch (error) {
+    console.error('Analysis error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 // @desc    Process YouTube URL
 // @route   POST /api/videos/youtube

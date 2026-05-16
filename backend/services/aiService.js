@@ -8,7 +8,7 @@ dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
-const fileManager = new GoogleAIFileManager(apiKey);
+export const fileManager = new GoogleAIFileManager(apiKey);
 
 const MIME_MAP = {
   '.mp3': 'audio/mp3',
@@ -99,60 +99,57 @@ export const analyzeYouTubeUrl = async (youtubeUrl) => {
 };
 
 // ── For uploaded MP4 files: upload to Gemini File API then analyze ──
-export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
+export const uploadFileToGemini = async (filePath) => {
   try {
-    let resolvedPath = audioFilePath;
-    if (!fs.existsSync(resolvedPath)) {
-      const base = resolvedPath.replace(/\.[^.]+$/, '');
-      for (const ext of ['.webm', '.m4a', '.ogg', '.opus', '.mp4', '.aac']) {
-        if (fs.existsSync(base + ext)) {
-          resolvedPath = base + ext;
-          console.log(`Resolved audio file: ${resolvedPath}`);
-          break;
-        }
-      }
-    }
-
-    const ext = path.extname(resolvedPath).toLowerCase();
-    const mimeType = MIME_MAP[ext] || 'audio/webm';
-
-    console.log(`Uploading ${resolvedPath} (${mimeType}) to Gemini...`);
-    const uploadResult = await fileManager.uploadFile(resolvedPath, {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeType = MIME_MAP[ext] || 'application/octet-stream';
+    console.log(`Uploading ${filePath} (${mimeType}) to Gemini (no wait)...`);
+    const uploadResult = await fileManager.uploadFile(filePath, {
       mimeType,
       displayName: 'User Uploaded Material',
     });
-    console.log(`File uploaded: ${uploadResult.file.uri}. Waiting for processing...`);
+    // Return the Gemini file name (identifier) for later polling
+    return uploadResult.file.name;
+  } catch (error) {
+    console.error('Error uploading to Gemini:', error);
+    throw error;
+  }
+};
 
-    // Poll until the file is ACTIVE
-    let fileState = await fileManager.getFile(uploadResult.file.name);
+export const waitForGeminiFile = async (geminiFileName, pollInterval = 5000) => {
+  try {
+    let fileState = await fileManager.getFile(geminiFileName);
     while (fileState.state === 'PROCESSING') {
-      console.log('File is processing, waiting 5 seconds...');
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      fileState = await fileManager.getFile(uploadResult.file.name);
+      console.log('Gemini file still processing, waiting...');
+      await new Promise(res => setTimeout(res, pollInterval));
+      fileState = await fileManager.getFile(geminiFileName);
     }
-
     if (fileState.state === 'FAILED') {
-      throw new Error('Gemini failed to process the uploaded file.');
+      throw new Error('Gemini processing failed');
     }
-    
-    console.log(`File is ready for analysis.`);
+    return fileState; // should be ACTIVE
+  } catch (error) {
+    console.error('Error waiting for Gemini file:', error);
+    throw error;
+  }
+};
 
+export const analyzeGeminiFile = async (geminiFileName) => {
+  try {
+    // Ensure file is ready
+    const fileState = await waitForGeminiFile(geminiFileName);
+    const mimeType = fileState.mimeType;
+    const uri = fileState.uri;
     const contents = [{
       role: 'user',
       parts: [
-        {
-          fileData: {
-            mimeType: uploadResult.file.mimeType,
-            fileUri: uploadResult.file.uri
-          }
-        },
+        { fileData: { mimeType, fileUri: uri } },
         { text: ANALYSIS_PROMPT }
       ]
     }];
     return await runGeminiWithRetry(contents);
-
   } catch (error) {
-    console.error('Error in Gemini AI Processing:', error);
+    console.error('Error analyzing Gemini file:', error);
     throw error;
   }
 };

@@ -29,6 +29,9 @@ const videoSchema = new mongoose.Schema(
     thumbnail: {
       type: String,
     },
+    geminiFileName: {
+      type: String,
+    },
     status: {
       type: String,
       enum: ['pending', 'processing', 'completed', 'failed'],
