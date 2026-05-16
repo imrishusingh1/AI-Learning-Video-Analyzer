@@ -34,7 +34,7 @@ const videoSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed'],
+      enum: ['pending', 'uploaded', 'processing', 'completed', 'failed'],
       default: 'pending',
     },
   },
