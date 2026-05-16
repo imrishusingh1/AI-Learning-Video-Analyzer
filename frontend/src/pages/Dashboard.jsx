@@ -51,13 +51,19 @@ const Dashboard = () => {
       formData.append('folder', folder);
       formData.append('api_key', apiKey);
 
-      const cloudinaryRes = await axios.post(
+      const cloudinaryRes = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-        formData
+        { method: 'POST', body: formData }
       );
+      
+      if (!cloudinaryRes.ok) {
+        throw new Error('Cloudinary upload failed');
+      }
+      
+      const cloudinaryData = await cloudinaryRes.json();
 
-      const fileUrl = cloudinaryRes.data.secure_url;
-      const publicId = cloudinaryRes.data.public_id;
+      const fileUrl = cloudinaryData.secure_url;
+      const publicId = cloudinaryData.public_id;
 
       // 3. Send Cloudinary URL to Backend
       const { data } = await axios.post('/api/videos/upload', {
