@@ -97,17 +97,28 @@ export const getGeminiStatus = async (req, res) => {
 // @access  Private
 export const analyzeVideo = async (req, res) => {
   try {
-    const { videoId, geminiFileName } = req.body;
-    if (!videoId || !geminiFileName) {
-      return res.status(400).json({ message: 'videoId and geminiFileName required' });
+    const { videoId } = req.body;
+    if (!videoId) {
+      return res.status(400).json({ message: 'videoId required' });
     }
     const video = await Video.findById(videoId);
     if (!video) return res.status(404).json({ message: 'Video not found' });
+    if (!video.geminiFileName) return res.status(400).json({ message: 'No Gemini file associated with this video' });
 
-    // Run analysis on Gemini file (expects ACTIVE state)
-    const aiResults = await analyzeGeminiFile(geminiFileName);
+    // Get file info directly (no polling — frontend already confirmed ACTIVE)
+    const fileInfo = await fileManager.getFile(video.geminiFileName);
+    if (fileInfo.state === 'FAILED') {
+      video.status = 'failed';
+      await video.save();
+      return res.status(422).json({ message: 'Gemini file processing failed' });
+    }
 
-    // Store results (reuse logic from runAIPipeline but without audio extraction)
+    console.log(`Analyzing file ${video.geminiFileName} (state: ${fileInfo.state}) for video ${videoId}...`);
+
+    // Run AI analysis
+    const aiResults = await analyzeGeminiFile(video.geminiFileName);
+
+    // Store results
     await Transcript.create({
       video: video._id,
       fullText: aiResults.transcript || 'Transcript not available.',
@@ -130,8 +141,8 @@ export const analyzeVideo = async (req, res) => {
     await video.save();
     res.json({ message: 'Analysis complete', video });
   } catch (error) {
-    console.error('Analysis error:', error);
-    res.status(500).json({ message: error.message });
+    console.error('Analysis error:', error?.message || error);
+    res.status(500).json({ message: error.message || 'Analysis failed' });
   }
 };
 

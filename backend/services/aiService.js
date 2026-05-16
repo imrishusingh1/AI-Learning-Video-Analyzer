@@ -136,8 +136,11 @@ export const waitForGeminiFile = async (geminiFileName, pollInterval = 5000) => 
 
 export const analyzeGeminiFile = async (geminiFileName) => {
   try {
-    // Ensure file is ready
-    const fileState = await waitForGeminiFile(geminiFileName);
+    // Get current file state directly (caller should have already confirmed ACTIVE)
+    const fileState = await fileManager.getFile(geminiFileName);
+    if (fileState.state !== 'ACTIVE') {
+      throw new Error(`Gemini file is not ready (state: ${fileState.state})`);
+    }
     const mimeType = fileState.mimeType;
     const uri = fileState.uri;
     const contents = [{

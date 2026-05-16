@@ -96,6 +96,7 @@ const VideoDetails = () => {
 
   useEffect(() => {
     let cancelled = false;
+    let analyzeFailures = 0;
 
     const fetchVideoData = async () => {
       const res = await axios.get(`/api/videos/${id}`);
@@ -116,18 +117,40 @@ const VideoDetails = () => {
 
         // Phase 2: File is uploaded to Gemini — poll until ACTIVE, then analyze
         if (status === 'uploaded') {
+          // Stop hammering if analyze keeps failing
+          if (analyzeFailures >= 3) {
+            if (!cancelled) {
+              setError('AI analysis is taking too long for this file. The server may have timed out. Please try a smaller file or try again later.');
+              setLoading(false);
+            }
+            return;
+          }
+
           try {
             const geminiRes = await axios.get(`/api/videos/${id}/gemini-status`);
-            if (geminiRes.data.state === 'ACTIVE') {
+            const geminiState = geminiRes.data.state;
+
+            if (geminiState === 'ACTIVE') {
               // Phase 3: Trigger AI analysis
-              await axios.post('/api/videos/analyze', {
-                videoId: id,
-                geminiFileName: video.geminiFileName,
-              });
-              await fetchVideoData();
+              try {
+                await axios.post('/api/videos/analyze', {
+                  videoId: id,
+                  geminiFileName: video.geminiFileName,
+                });
+                analyzeFailures = 0; // reset on success
+                await fetchVideoData();
+              } catch (analyzeErr) {
+                analyzeFailures++;
+                console.warn(`Analyze attempt ${analyzeFailures} failed:`, analyzeErr.response?.data?.message || analyzeErr.message);
+              }
+            } else if (geminiState === 'FAILED') {
+              if (!cancelled) {
+                setError('Gemini failed to process this file. Please try again with a different file.');
+                setLoading(false);
+              }
             }
           } catch (geminiErr) {
-            console.warn('Gemini status check:', geminiErr.message);
+            console.warn('Gemini status check failed:', geminiErr.message);
           }
         }
 
@@ -147,13 +170,14 @@ const VideoDetails = () => {
       if (s === 'processing' || s === 'pending' || s === 'uploaded') {
         runPipeline();
       }
-    }, 5000);
+    }, 8000); // 8s interval to reduce hammering
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, [id, data?.video?.status]);
+
 
   if (!data) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 68px)', background: 'var(--surface)' }}>
