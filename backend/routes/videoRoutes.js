@@ -29,6 +29,7 @@ router.route('/upload-signature').get(protect, getUploadSignature);
 router.route('/').get(protect, getMyVideos);
 router.route('/:id').get(protect, getVideoById);
 router.post('/upload', protect, uploadVideo);
+router.post('/youtube', protect, processYouTubeUrl);
 router.get('/:id/gemini-status', protect, getGeminiStatus);
 router.post('/analyze', protect, analyzeVideo);
 
