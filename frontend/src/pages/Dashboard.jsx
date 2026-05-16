@@ -72,21 +72,21 @@ const Dashboard = () => {
 
   return (
     <div style={{ background: 'var(--surface)', minHeight: 'calc(100vh - 68px)' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+      <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 md:py-10">
 
         {/* Page header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          style={{ marginBottom: '2rem' }}
+          className="mb-6 md:mb-8"
         >
-          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.375rem' }}>
+          <p className="text-sm font-semibold text-[var(--primary)] tracking-[0.06em] uppercase mb-1.5">
             Dashboard
           </p>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+          <h1 className="text-2xl sm:text-[1.875rem] font-extrabold text-[var(--text)] tracking-tight">
             Welcome back, {user?.name} 👋
           </h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.375rem' }}>
+          <p className="text-[var(--text-muted)] mt-1.5">
             Ready to transform another video?
           </p>
         </motion.div>
@@ -97,8 +97,7 @@ const Dashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="card flex-1"
-            style={{ padding: '2rem' }}
+            className="card flex-1 p-5 md:p-8"
           >
             {/* Tabs */}
             <div style={{
@@ -205,7 +204,7 @@ const Dashboard = () => {
             transition={{ delay: 0.08 }}
             className="w-full lg:w-[340px]"
           >
-            <div className="card" style={{ padding: '1.5rem' }}>
+            <div className="card p-5 md:p-6">
               <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <PlaySquare size={18} color="var(--primary)" />
                 Recent Videos
