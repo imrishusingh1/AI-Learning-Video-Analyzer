@@ -13,8 +13,9 @@ const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext !== '.mp4' && ext !== '.mkv' && ext !== '.avi' && ext !== '.mov') {
-      return cb(new Error('Only video files are allowed'), false);
+    const allowedExts = ['.mp4', '.mkv', '.avi', '.mov', '.pdf', '.doc', '.docx', '.txt'];
+    if (!allowedExts.includes(ext)) {
+      return cb(new Error('Only video and document files are allowed (.mp4, .pdf, .docx, .txt)'), false);
     }
     cb(null, true);
   },

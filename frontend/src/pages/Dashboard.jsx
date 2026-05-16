@@ -110,7 +110,7 @@ const Dashboard = () => {
                 className={`tab-btn ${activeTab === 'upload' ? 'active' : ''}`}
               >
                 <Upload size={15} />
-                Upload MP4
+                Upload File
               </button>
               <button
                 onClick={() => setActiveTab('youtube')}
@@ -141,10 +141,10 @@ const Dashboard = () => {
 
             {activeTab === 'upload' ? (
               <form onSubmit={handleFileUpload} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <label htmlFor="video-upload" className="dropzone" style={{ cursor: 'pointer' }}>
+                <label htmlFor="video-upload" className="dropzone flex flex-col items-center justify-center cursor-pointer">
                   <input
                     type="file"
-                    accept="video/mp4,video/mkv,video/avi"
+                    accept="video/mp4,video/mkv,video/avi,.pdf,.doc,.docx,.txt"
                     onChange={(e) => setFile(e.target.files[0])}
                     style={{ display: 'none' }}
                     id="video-upload"
@@ -153,7 +153,7 @@ const Dashboard = () => {
                   <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '0.25rem', fontSize: '1.0625rem' }}>
                     {file ? file.name : 'Click to browse or drag & drop'}
                   </p>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>MP4, MKV, AVI — up to 500 MB</p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Video, PDF, DOC, TXT — up to 500 MB</p>
                 </label>
 
                 <button
@@ -162,7 +162,7 @@ const Dashboard = () => {
                   className="btn-primary"
                   style={{ width: '100%', justifyContent: 'center', padding: '0.9375rem', fontSize: '0.9375rem', opacity: loading || !file ? 0.6 : 1, cursor: loading || !file ? 'not-allowed' : 'pointer' }}
                 >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Sparkles size={16} /> Process Video</>}
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Sparkles size={16} /> Process Content</>}
                 </button>
               </form>
             ) : (

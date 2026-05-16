@@ -32,7 +32,7 @@ export const uploadToCloudinary = (fileBuffer, folderName = 'synapseai') => {
   });
 };
 
-export const deleteFromCloudinary = (publicId) => {
+export const deleteFromCloudinary = async (publicId) => {
   // Configure at call time so env vars are guaranteed to be loaded
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -40,16 +40,26 @@ export const deleteFromCloudinary = (publicId) => {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 
-  return new Promise((resolve, reject) => {
-    // We use resource_type: 'video' because Cloudinary treats audio files as video type for deletion
-    cloudinary.uploader.destroy(publicId, { resource_type: 'video' }, (error, result) => {
-      if (error) {
-        console.error(`Failed to delete ${publicId} from Cloudinary:`, error);
-        reject(error);
-      } else {
-        console.log(`Deleted ${publicId} from Cloudinary:`, result);
-        resolve(result);
-      }
+  const tryDelete = (type) => new Promise((resolve) => {
+    cloudinary.uploader.destroy(publicId, { resource_type: type }, (error, result) => {
+      resolve({ error, result });
     });
   });
+
+  // Try video first, then raw, then image (auto defaults)
+  let { error, result } = await tryDelete('video');
+  if (result?.result !== 'ok') {
+    ({ error, result } = await tryDelete('raw'));
+  }
+  if (result?.result !== 'ok') {
+    ({ error, result } = await tryDelete('image'));
+  }
+
+  if (result?.result === 'ok') {
+    console.log(`Deleted ${publicId} from Cloudinary`);
+    return result;
+  } else {
+    console.error(`Failed to delete ${publicId}:`, error || result);
+    throw new Error('Failed to delete from Cloudinary');
+  }
 };

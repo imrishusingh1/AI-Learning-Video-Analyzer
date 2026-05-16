@@ -11,22 +11,27 @@ const genAI = new GoogleGenerativeAI(apiKey);
 const fileManager = new GoogleAIFileManager(apiKey);
 
 const MIME_MAP = {
-  '.mp3':  'audio/mpeg',
-  '.mp4':  'audio/mp4',
-  '.m4a':  'audio/mp4',
-  '.webm': 'audio/webm',
-  '.ogg':  'audio/ogg',
+  '.mp3': 'audio/mp3',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo',
+  '.mov': 'video/quicktime',
+  '.m4a': 'audio/m4a',
+  '.ogg': 'audio/ogg',
   '.opus': 'audio/ogg',
-  '.wav':  'audio/wav',
-  '.flac': 'audio/flac',
-  '.aac':  'audio/aac',
+  '.aac': 'audio/aac',
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
 const ANALYSIS_PROMPT = `
-  Please analyze this video/audio and return a JSON object with the following structure:
+  Please analyze this document/video/audio and return a JSON object with the following structure:
   {
-    "title": "A short, accurate title summarizing the video content",
-    "transcript": "The full exact text transcript of what was spoken.",
+    "title": "A short, accurate title summarizing the content",
+    "transcript": "The full exact text transcript of what was spoken or the full text of the document.",
     "summary": "A 2-3 paragraph detailed summary of the main points.",
     "topics": [
       {
@@ -114,7 +119,7 @@ export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
     console.log(`Uploading ${resolvedPath} (${mimeType}) to Gemini...`);
     const uploadResult = await fileManager.uploadFile(resolvedPath, {
       mimeType,
-      displayName: 'Video Audio Extract',
+      displayName: 'User Uploaded Material',
     });
     console.log(`File uploaded: ${uploadResult.file.uri}`);
 
