@@ -121,7 +121,21 @@ export const transcribeAndAnalyzeAudio = async (audioFilePath) => {
       mimeType,
       displayName: 'User Uploaded Material',
     });
-    console.log(`File uploaded: ${uploadResult.file.uri}`);
+    console.log(`File uploaded: ${uploadResult.file.uri}. Waiting for processing...`);
+
+    // Poll until the file is ACTIVE
+    let fileState = await fileManager.getFile(uploadResult.file.name);
+    while (fileState.state === 'PROCESSING') {
+      console.log('File is processing, waiting 5 seconds...');
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      fileState = await fileManager.getFile(uploadResult.file.name);
+    }
+
+    if (fileState.state === 'FAILED') {
+      throw new Error('Gemini failed to process the uploaded file.');
+    }
+    
+    console.log(`File is ready for analysis.`);
 
     const contents = [{
       role: 'user',
